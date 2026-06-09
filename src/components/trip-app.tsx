@@ -669,7 +669,7 @@ function LegDetail({
       </button>
 
       <div className="mt-6 space-y-3">
-        {activities.slice(0, 6).map((activity) => (
+        {activities.map((activity) => (
           <CompactActivityRow
             key={activity.activity_id}
             activity={activity}
