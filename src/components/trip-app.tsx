@@ -1,12 +1,14 @@
 "use client";
 
-import type { Activity, Category, Leg, TripData } from "@/lib/trip-data";
+import type { Activity, Category, Leg, Phrase, TripData } from "@/lib/trip-data";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
+  ChevronLeft,
   ChevronRight,
   Clock,
   CloudSun,
+  ExternalLink,
   MapPin,
   Languages,
   MapPinned,
@@ -26,6 +28,7 @@ type CalendarSegment = {
   span: number;
   startColumn: number;
   title: string;
+  value: string;
 };
 
 const tabs: Array<{ id: TabId; label: string; icon: typeof Sparkles }> = [
@@ -38,6 +41,10 @@ const tabs: Array<{ id: TabId; label: string; icon: typeof Sparkles }> = [
 export function TripApp({ data }: { data: TripData }) {
   const [activeTab, setActiveTab] = useState<TabId>("today");
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [selectedLeg, setSelectedLeg] = useState<Leg | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
 
   const categoryById = useMemo(
     () => new Map(data.categories.map((category) => [category.category_id, category])),
@@ -64,7 +71,7 @@ export function TripApp({ data }: { data: TripData }) {
               <IconButton label="Search">
                 <Search size={19} />
               </IconButton>
-              <IconButton label="Phrases">
+              <IconButton label="Phrases" onClick={() => setIsPhrasebookOpen(true)}>
                 <Languages size={19} />
               </IconButton>
             </div>
@@ -80,12 +87,22 @@ export function TripApp({ data }: { data: TripData }) {
               onSelectActivity={setSelectedActivity}
             />
           )}
-          {activeTab === "legs" && <LegsPanel legs={data.legs} />}
+          {activeTab === "legs" && (
+            <LegsPanel legs={data.legs} onSelectLeg={setSelectedLeg} />
+          )}
           {activeTab === "categories" && (
-            <CategoriesPanel categories={data.categories} activities={data.activities} />
+            <CategoriesPanel
+              categories={data.categories}
+              activities={data.activities}
+              onSelectCategory={setSelectedCategory}
+            />
           )}
           {activeTab === "calendar" && (
-            <CalendarPanel legs={data.legs} />
+            <CalendarPanel
+              activities={data.activities}
+              legs={data.legs}
+              onSelectDate={setSelectedDate}
+            />
           )}
         </section>
 
@@ -120,6 +137,45 @@ export function TripApp({ data }: { data: TripData }) {
               category={categoryById.get(selectedActivity.category)}
               leg={data.legs.find((leg) => leg.leg_id === selectedActivity.leg_id)}
               onClose={() => setSelectedActivity(null)}
+            />
+          )}
+          {selectedLeg && (
+            <LegDetail
+              activities={data.activities.filter((activity) => activity.leg_id === selectedLeg.leg_id)}
+              leg={selectedLeg}
+              onClose={() => setSelectedLeg(null)}
+            />
+          )}
+          {selectedCategory && (
+            <CategoryDetail
+              activities={data.activities.filter(
+                (activity) => activity.category === selectedCategory.category_id,
+              )}
+              category={selectedCategory}
+              legs={data.legs}
+              onClose={() => setSelectedCategory(null)}
+              onSelectActivity={(activity) => {
+                setSelectedCategory(null);
+                setSelectedActivity(activity);
+              }}
+            />
+          )}
+          {selectedDate && (
+            <DateDetail
+              activities={data.activities.filter((activity) => activity.date === selectedDate)}
+              date={selectedDate}
+              leg={getLegForDate(data.legs, selectedDate)}
+              onClose={() => setSelectedDate(null)}
+              onSelectActivity={(activity) => {
+                setSelectedDate(null);
+                setSelectedActivity(activity);
+              }}
+            />
+          )}
+          {isPhrasebookOpen && (
+            <PhrasebookDetail
+              phrases={data.phrases}
+              onClose={() => setIsPhrasebookOpen(false)}
             />
           )}
         </AnimatePresence>
@@ -228,7 +284,13 @@ function RestDayCard({ date }: { date: string }) {
   );
 }
 
-function LegsPanel({ legs }: { legs: Leg[] }) {
+function LegsPanel({
+  legs,
+  onSelectLeg,
+}: {
+  legs: Leg[];
+  onSelectLeg: (leg: Leg) => void;
+}) {
   return (
     <div className="space-y-3">
       {legs.map((leg) => (
@@ -236,6 +298,7 @@ function LegsPanel({ legs }: { legs: Leg[] }) {
           key={leg.leg_id}
           type="button"
           className="flex w-full items-center justify-between rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5"
+          onClick={() => onSelectLeg(leg)}
         >
           <span className="min-w-0">
             <span className="block truncate text-lg font-semibold">{leg.city}</span>
@@ -257,9 +320,11 @@ function LegsPanel({ legs }: { legs: Leg[] }) {
 function CategoriesPanel({
   activities,
   categories,
+  onSelectCategory,
 }: {
   activities: Activity[];
   categories: Category[];
+  onSelectCategory: (category: Category) => void;
 }) {
   const counts = useMemo(() => {
     const nextCounts = new Map<string, number>();
@@ -278,6 +343,7 @@ function CategoriesPanel({
           key={category.category_id}
           type="button"
           className="min-h-[170px] rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5"
+          onClick={() => onSelectCategory(category)}
         >
           <span className="block text-4xl">{category.emoji}</span>
           <span className="mt-4 block text-base font-semibold leading-snug">
@@ -292,26 +358,70 @@ function CategoriesPanel({
   );
 }
 
-function CalendarPanel({ legs }: { legs: Leg[] }) {
-  const visibleDates = useMemo(() => {
+function CalendarPanel({
+  activities,
+  legs,
+  onSelectDate,
+}: {
+  activities: Activity[];
+  legs: Leg[];
+  onSelectDate: (date: string) => void;
+}) {
+  const tripDates = useMemo(() => {
     const start = legs[0]?.arrive;
     const end = legs.at(-1)?.leave;
 
     if (!start || !end) return [];
 
-    return getDateRange(start, end).slice(0, 35);
+    return getDateRange(start, end);
   }, [legs]);
+  const months = useMemo(() => Array.from(new Set(tripDates.map((date) => date.slice(0, 7)))), [tripDates]);
+  const [monthIndex, setMonthIndex] = useState(0);
+  const activeMonth = months[monthIndex] ?? tripDates[0]?.slice(0, 7);
+  const visibleDates = useMemo(
+    () => tripDates.filter((date) => date.startsWith(activeMonth ?? "")),
+    [activeMonth, tripDates],
+  );
   const calendarRows = useMemo(
     () => buildCalendarRows(visibleDates, legs),
     [visibleDates, legs],
   );
+  const activityCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    activities.forEach((activity) => {
+      counts.set(activity.date, (counts.get(activity.date) ?? 0) + 1);
+    });
+
+    return counts;
+  }, [activities]);
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
-        <p className="text-sm font-semibold text-[var(--color-muted)]">
-          Trip days by place
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            aria-label="Previous month"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/45 text-[var(--color-ink)] disabled:opacity-35"
+            disabled={monthIndex === 0}
+            onClick={() => setMonthIndex((index) => Math.max(0, index - 1))}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <p className="text-lg font-semibold">
+            {activeMonth ? formatMonth(activeMonth) : "Calendar"}
+          </p>
+          <button
+            type="button"
+            aria-label="Next month"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/45 text-[var(--color-ink)] disabled:opacity-35"
+            disabled={monthIndex >= months.length - 1}
+            onClick={() => setMonthIndex((index) => Math.min(months.length - 1, index + 1))}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
         <div className="mt-3 space-y-1.5">
           {calendarRows.map((row, rowIndex) => (
             <div key={rowIndex} className="grid grid-cols-7 gap-1">
@@ -325,13 +435,15 @@ function CalendarPanel({ legs }: { legs: Leg[] }) {
                     background: segment.background,
                     gridColumn: `${segment.startColumn} / span ${segment.span}`,
                   }}
+                  onClick={() => onSelectDate(segment.value)}
                 >
                   <span className="text-[10px] font-semibold leading-none text-[var(--color-muted)]">
                     {segment.dateLabel}
                   </span>
-                  {segment.label && (
+                  {(segment.label || activityCounts.get(segment.value)) && (
                     <span className="truncate text-[11px] font-bold leading-tight">
-                      {segment.label}
+                      {segment.label ||
+                        `${activityCounts.get(segment.value) ?? 0} plans`}
                     </span>
                   )}
                 </button>
@@ -350,9 +462,11 @@ function CalendarPanel({ legs }: { legs: Leg[] }) {
 function IconButton({
   children,
   label,
+  onClick,
 }: {
   children: React.ReactNode;
   label: string;
+  onClick?: () => void;
 }) {
   return (
     <button
@@ -360,6 +474,7 @@ function IconButton({
       aria-label={label}
       title={label}
       className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/70 bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm shadow-stone-950/10"
+      onClick={onClick}
     >
       {children}
     </button>
@@ -444,6 +559,258 @@ function ActivityDetail({
   );
 }
 
+function LegDetail({
+  activities,
+  leg,
+  onClose,
+}: {
+  activities: Activity[];
+  leg: Leg;
+  onClose: () => void;
+}) {
+  return (
+    <Overlay onClose={onClose} closeLabel="Close leg">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">
+        {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} · {leg.nights} nights
+      </p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">{leg.city}</h2>
+      <p className="mt-1 text-lg font-semibold text-[var(--color-leather)]">
+        {leg.country}
+      </p>
+      <p className="mt-5 text-base leading-7">{leg.why}</p>
+
+      <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
+        <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
+          <MapPin size={16} />
+          Stay
+        </p>
+        <p className="mt-2 font-semibold">{leg.stay_name}</p>
+        <p className="mt-1 text-sm leading-6 text-[var(--color-muted)]">
+          {leg.stay_address}
+        </p>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {activities.slice(0, 6).map((activity) => (
+          <CompactActivityRow key={activity.activity_id} activity={activity} />
+        ))}
+      </div>
+    </Overlay>
+  );
+}
+
+function CategoryDetail({
+  activities,
+  category,
+  legs,
+  onClose,
+  onSelectActivity,
+}: {
+  activities: Activity[];
+  category: Category;
+  legs: Leg[];
+  onClose: () => void;
+  onSelectActivity: (activity: Activity) => void;
+}) {
+  return (
+    <Overlay onClose={onClose} closeLabel="Close category">
+      <p className="text-5xl leading-none">{category.emoji}</p>
+      <h2 className="mt-5 text-4xl font-semibold leading-tight">
+        {category.description}
+      </h2>
+      <p className="mt-2 text-sm font-semibold text-[var(--color-muted)]">
+        {activities.length} activities
+      </p>
+
+      <div className="mt-6 space-y-3">
+        {activities.map((activity) => {
+          const leg = legs.find((item) => item.leg_id === activity.leg_id);
+
+          return (
+            <button
+              key={activity.activity_id}
+              type="button"
+              className="w-full rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
+              onClick={() => onSelectActivity(activity)}
+            >
+              <span className="block text-sm font-semibold text-[var(--color-muted)]">
+                {formatShortDate(activity.date)} · {leg?.city ?? "Trip"}
+              </span>
+              <span className="mt-1 block text-lg font-semibold leading-snug">
+                {activity.title}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </Overlay>
+  );
+}
+
+function DateDetail({
+  activities,
+  date,
+  leg,
+  onClose,
+  onSelectActivity,
+}: {
+  activities: Activity[];
+  date: string;
+  leg: Leg | undefined;
+  onClose: () => void;
+  onSelectActivity: (activity: Activity) => void;
+}) {
+  return (
+    <Overlay onClose={onClose} closeLabel="Close date">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">
+        {formatLongDate(date)}
+      </p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">
+        {leg?.city ?? "Trip Day"}
+      </h2>
+
+      <div className="mt-6 space-y-3">
+        {activities.length > 0 ? (
+          activities.map((activity) => (
+            <button
+              key={activity.activity_id}
+              type="button"
+              className="w-full rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
+              onClick={() => onSelectActivity(activity)}
+            >
+              <span className="block text-sm font-semibold text-[var(--color-muted)]">
+                {activity.start_time ? formatTimeRange(activity) : "Anytime"}
+              </span>
+              <span className="mt-1 block text-lg font-semibold leading-snug">
+                {activity.title}
+              </span>
+            </button>
+          ))
+        ) : (
+          <p className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-sm font-semibold text-[var(--color-muted)] shadow-[var(--shadow-card)]">
+            No plans on the sheet for this day.
+          </p>
+        )}
+      </div>
+    </Overlay>
+  );
+}
+
+function PhrasebookDetail({
+  onClose,
+  phrases,
+}: {
+  onClose: () => void;
+  phrases: Phrase[];
+}) {
+  const groupedPhrases = useMemo(() => {
+    const groups = new Map<string, Phrase[]>();
+
+    phrases.forEach((phrase) => {
+      const key = `${phrase.language} · ${phrase.category}`;
+      groups.set(key, [...(groups.get(key) ?? []), phrase]);
+    });
+
+    return Array.from(groups.entries());
+  }, [phrases]);
+
+  return (
+    <Overlay onClose={onClose} closeLabel="Close phrases">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">Phrasebook</p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">Useful Words</h2>
+
+      <div className="mt-6 space-y-5">
+        {groupedPhrases.map(([group, items]) => (
+          <section key={group}>
+            <h3 className="text-sm font-bold uppercase text-[var(--color-muted)]">
+              {group}
+            </h3>
+            <div className="mt-2 space-y-2">
+              {items.map((phrase) => (
+                <div
+                  key={`${group}-${phrase.english}-${phrase.script}`}
+                  className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]"
+                >
+                  <p className="text-sm font-semibold text-[var(--color-muted)]">
+                    {phrase.english}
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold">{phrase.script}</p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--color-leather)]">
+                    {phrase.pronunciation}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </Overlay>
+  );
+}
+
+function CompactActivityRow({ activity }: { activity: Activity }) {
+  return (
+    <div className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">
+        {formatShortDate(activity.date)}
+        {activity.start_time ? ` · ${formatTimeRange(activity)}` : ""}
+      </p>
+      <p className="mt-1 text-lg font-semibold leading-snug">{activity.title}</p>
+      {activity.url && (
+        <a
+          className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[var(--color-blue)]"
+          href={activity.url}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Open
+          <ExternalLink size={14} />
+        </a>
+      )}
+    </div>
+  );
+}
+
+function Overlay({
+  children,
+  closeLabel,
+  onClose,
+}: {
+  children: React.ReactNode;
+  closeLabel: string;
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-30 bg-stone-950/35 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.div
+        className="mx-auto flex max-h-screen min-h-screen w-full max-w-[440px] flex-col overflow-y-auto bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl"
+        initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
+        animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
+        exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
+        transition={{ damping: 28, stiffness: 260, type: "spring" }}
+      >
+        <div className="flex justify-end">
+          <button
+            type="button"
+            aria-label={closeLabel}
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-surface)] shadow-sm"
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="mt-6">{children}</div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function getHeaderTitle(activeTab: TabId, leg: Leg): string {
   if (activeTab === "today") return leg.city;
   if (activeTab === "legs") return "Trip Legs";
@@ -502,6 +869,14 @@ function formatShortDate(date: string): string {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
+function formatMonth(month: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(`${month}-01T00:00:00Z`));
+}
+
 function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
   const labeledLegIds = new Set<string>();
   const rows: CalendarSegment[][] = [];
@@ -528,6 +903,7 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
           span: 1,
           startColumn: index + 1,
           title: `${formatLongDate(date)}: ${previousLeg.city} to ${leg.city}`,
+          value: date,
         });
 
         index += 1;
@@ -562,6 +938,7 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
         span,
         startColumn: index + 1,
         title: `${formatSegmentTitle(segmentDates)}: ${leg?.city ?? "Trip day"}`,
+        value: segmentDates[0],
       });
 
       index += span;
