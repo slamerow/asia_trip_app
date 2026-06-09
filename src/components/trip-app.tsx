@@ -439,32 +439,52 @@ function CalendarPanel({
             <ChevronRight size={18} />
           </button>
         </div>
-        <label className="mt-4 block">
-          <span className="sr-only">Jump to day</span>
-          <select
-            className="h-11 w-full rounded-lg border border-white/60 bg-[var(--color-app)] px-3 text-sm font-semibold text-[var(--color-ink)] shadow-sm outline-none"
-            defaultValue=""
-            onChange={(event) => {
-              if (!event.target.value) return;
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+          <label className="block">
+            <span className="sr-only">Choose month</span>
+            <select
+              className="h-11 w-full rounded-lg border border-white/60 bg-[var(--color-app)] px-3 text-sm font-semibold text-[var(--color-ink)] shadow-sm outline-none"
+              value={activeMonth ?? ""}
+              onChange={(event) => {
+                const nextIndex = months.indexOf(event.target.value);
 
-              onSelectDate(event.target.value);
-              event.target.value = "";
-            }}
-          >
-            <option value="">Jump to day</option>
-            {tripDates.map((date) => {
-              const leg = getLegForDate(legs, date);
-              const count = activityCounts.get(date) ?? 0;
-
-              return (
-                <option key={date} value={date}>
-                  {formatSelectDate(date)} · {leg?.city ?? "Trip"} · {count}{" "}
-                  {count === 1 ? "plan" : "plans"}
+                if (nextIndex >= 0) setMonthIndex(nextIndex);
+              }}
+            >
+              {months.map((month) => (
+                <option key={month} value={month}>
+                  {formatMonth(month)}
                 </option>
-              );
-            })}
-          </select>
-        </label>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="sr-only">Choose day</span>
+            <select
+              className="h-11 w-full rounded-lg border border-white/60 bg-[var(--color-app)] px-3 text-sm font-semibold text-[var(--color-ink)] shadow-sm outline-none"
+              defaultValue=""
+              onChange={(event) => {
+                if (!event.target.value) return;
+
+                onSelectDate(event.target.value);
+                event.target.value = "";
+              }}
+            >
+              <option value="">Day</option>
+              {visibleDates.map((date) => {
+                const leg = getLegForDate(legs, date);
+                const count = activityCounts.get(date) ?? 0;
+
+                return (
+                  <option key={date} value={date}>
+                    {formatDayNumber(date)} · {leg?.city ?? "Trip"} · {count}{" "}
+                    {count === 1 ? "plan" : "plans"}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        </div>
         <div className="mt-3 space-y-1.5">
           {calendarRows.map((row, rowIndex) => (
             <div key={rowIndex} className="grid grid-cols-7 gap-1">
@@ -1199,10 +1219,8 @@ function formatShortDate(date: string): string {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
-function formatSelectDate(date: string): string {
+function formatDayNumber(date: string): string {
   return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${date}T00:00:00Z`));
