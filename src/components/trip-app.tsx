@@ -278,9 +278,11 @@ function WeatherCard({ weather }: { weather: WeatherForecast }) {
             </>
           ) : (
             <>
-              <p className="mt-1 text-2xl font-semibold">{weather.message}</p>
-              <p className="mt-1 truncate text-sm font-semibold text-[var(--color-blue)]">
-                {weather.location}
+              <p className="mt-1 text-3xl font-semibold">High -- / Low --</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--color-blue)]">
+                {weather.message === "Available soon"
+                  ? "Forecast coming next"
+                  : weather.message}
               </p>
             </>
           )}
