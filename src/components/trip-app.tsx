@@ -1,6 +1,7 @@
 "use client";
 
 import type { Activity, Category, Leg, Phrase, TripData } from "@/lib/trip-data";
+import type { WeatherForecast } from "@/lib/weather";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
@@ -40,7 +41,13 @@ const tabs: Array<{ id: TabId; label: string; icon: typeof Sparkles }> = [
   { id: "calendar", label: "Calendar", icon: CalendarDays },
 ];
 
-export function TripApp({ data }: { data: TripData }) {
+export function TripApp({
+  data,
+  weather,
+}: {
+  data: TripData;
+  weather: WeatherForecast;
+}) {
   const [activeTab, setActiveTab] = useState<TabId>("today");
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [selectedLeg, setSelectedLeg] = useState<Leg | null>(null);
@@ -91,6 +98,7 @@ export function TripApp({ data }: { data: TripData }) {
               categoryById={categoryById}
               date={activeDay.date}
               onSelectActivity={setSelectedActivity}
+              weather={weather}
             />
           )}
           {activeTab === "legs" && (
@@ -204,28 +212,17 @@ function TodayPanel({
   categoryById,
   date,
   onSelectActivity,
+  weather,
 }: {
   activities: Activity[];
   categoryById: Map<string, Category>;
   date: string;
   onSelectActivity: (activity: Activity) => void;
+  weather: WeatherForecast;
 }) {
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-white/70 bg-[var(--color-sky)] p-4 text-[var(--color-ink)] shadow-[var(--shadow-card)]">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-[var(--color-muted)]">
-              Weather
-            </p>
-            <p className="mt-1 text-2xl font-semibold">High -- / Low --</p>
-            <p className="mt-1 text-sm font-semibold text-[var(--color-blue)]">
-              Forecast coming next
-            </p>
-          </div>
-          <CloudSun className="text-[var(--color-blue)]" size={36} />
-        </div>
-      </div>
+      <WeatherCard weather={weather} />
 
       <div className="-mx-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-4 pt-1">
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
@@ -243,6 +240,60 @@ function TodayPanel({
         )}
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
       </div>
+    </div>
+  );
+}
+
+function WeatherCard({ weather }: { weather: WeatherForecast }) {
+  return (
+    <div className="rounded-xl border border-white/70 bg-[var(--color-sky)] p-4 text-[var(--color-ink)] shadow-[var(--shadow-card)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[var(--color-muted)]">
+            Weather
+          </p>
+          {weather.status === "ready" ? (
+            <>
+              <p className="mt-1 text-3xl font-semibold">
+                {weather.high}° / {weather.low}°
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[var(--color-blue)]">
+                {weather.condition}
+                {weather.rainChance !== null ? ` · ${weather.rainChance}% rain` : ""}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-2xl font-semibold">{weather.message}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-[var(--color-blue)]">
+                {weather.location}
+              </p>
+            </>
+          )}
+        </div>
+        <CloudSun className="shrink-0 text-[var(--color-blue)]" size={36} />
+      </div>
+
+      {weather.status === "ready" && weather.outlook.length > 0 && (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {weather.outlook.map((day) => (
+            <div
+              key={day.date}
+              className="rounded-lg border border-white/55 bg-[var(--color-app)]/55 px-3 py-2"
+            >
+              <p className="text-xs font-bold uppercase text-[var(--color-muted)]">
+                {formatShortDate(day.date)}
+              </p>
+              <p className="mt-1 text-sm font-semibold">
+                {day.high}° / {day.low}°
+              </p>
+              <p className="mt-0.5 truncate text-xs font-semibold text-[var(--color-blue)]">
+                {day.condition}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
