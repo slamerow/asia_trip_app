@@ -242,24 +242,26 @@ function TodayPanel({
   weather: WeatherForecast;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="flex min-h-[calc(100dvh-15rem)] flex-col">
       <WeatherCard weather={weather} />
 
-      <div className="-mx-5 mt-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-2 pt-1">
-        <div className="shrink-0 basis-[11%]" aria-hidden="true" />
-        {activities.length > 0 ? (
-          activities.map((activity) => (
-            <ActivityCard
-              key={activity.activity_id}
-              activity={activity}
-              category={categoryById.get(activity.category)}
-              onSelect={() => onSelectActivity(activity)}
-            />
-          ))
-        ) : (
-          <RestDayCard date={date} />
-        )}
-        <div className="shrink-0 basis-[11%]" aria-hidden="true" />
+      <div className="-mx-5 flex flex-1 items-center">
+        <div className="flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth pb-5 pt-6">
+          <div className="shrink-0 basis-[11%]" aria-hidden="true" />
+          {activities.length > 0 ? (
+            activities.map((activity) => (
+              <ActivityCard
+                key={activity.activity_id}
+                activity={activity}
+                category={categoryById.get(activity.category)}
+                onSelect={() => onSelectActivity(activity)}
+              />
+            ))
+          ) : (
+            <RestDayCard date={date} />
+          )}
+          <div className="shrink-0 basis-[11%]" aria-hidden="true" />
+        </div>
       </div>
     </div>
   );
