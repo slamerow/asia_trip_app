@@ -769,6 +769,7 @@ function LegDetail({
   onSelectActivity: (activity: Activity) => void;
 }) {
   const [isStayOpen, setIsStayOpen] = useState(false);
+  const activityGroups = useMemo(() => groupActivitiesByDate(activities), [activities]);
 
   return (
     <Overlay onClose={onClose} closeLabel="Close leg">
@@ -806,13 +807,22 @@ function LegDetail({
         )}
       </button>
 
-      <div className="mt-6 space-y-3">
-        {activities.map((activity) => (
-          <CompactActivityRow
-            key={activity.activity_id}
-            activity={activity}
-            onSelect={() => onSelectActivity(activity)}
-          />
+      <div className="mt-6 space-y-5">
+        {activityGroups.map((group) => (
+          <section key={group.date}>
+            <h3 className="mb-2 text-sm font-bold uppercase text-[var(--color-muted)]">
+              {formatLegDayHeader(group.date)}
+            </h3>
+            <div className="space-y-3">
+              {group.activities.map((activity) => (
+                <CompactActivityRow
+                  key={activity.activity_id}
+                  activity={activity}
+                  onSelect={() => onSelectActivity(activity)}
+                />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     </Overlay>
@@ -1364,6 +1374,15 @@ function formatLongDate(date: string): string {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
+function formatLegDayHeader(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
 function formatShortDate(date: string): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -1604,4 +1623,19 @@ function getGoogleMapsUrl(leg: Leg): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     `${leg.stay_address || leg.city}, ${leg.country}`,
   )}`;
+}
+
+function groupActivitiesByDate(
+  activities: Activity[],
+): Array<{ activities: Activity[]; date: string }> {
+  const groups = new Map<string, Activity[]>();
+
+  activities.forEach((activity) => {
+    groups.set(activity.date, [...(groups.get(activity.date) ?? []), activity]);
+  });
+
+  return Array.from(groups.entries()).map(([date, groupedActivities]) => ({
+    activities: groupedActivities,
+    date,
+  }));
 }
