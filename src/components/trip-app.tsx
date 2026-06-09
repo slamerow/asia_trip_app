@@ -240,10 +240,10 @@ function TodayPanel({
   const [isStayOpen, setIsStayOpen] = useState(false);
 
   return (
-    <div className="space-y-5">
+    <div className="flex min-h-[calc(100dvh-14rem)] flex-col">
       <WeatherCard weather={weather} />
 
-      <div className="-mx-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-2 pt-1">
+      <div className="-mx-5 mt-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-2 pt-1">
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
         {activities.length > 0 ? (
           activities.map((activity) => (
@@ -260,7 +260,9 @@ function TodayPanel({
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
       </div>
 
-      <StayCard leg={leg} onSelect={() => setIsStayOpen(true)} />
+      <div className="mt-auto pt-8">
+        <StayCard leg={leg} onSelect={() => setIsStayOpen(true)} />
+      </div>
 
       <AnimatePresence>
         {isStayOpen && (
@@ -356,20 +358,15 @@ function StayCard({ leg, onSelect }: { leg: Leg; onSelect: () => void }) {
   return (
     <button
       type="button"
-      className="flex h-20 w-full items-center justify-between gap-3 rounded-xl border border-white/60 bg-[var(--color-surface)] px-3 py-2 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5"
+      className="flex h-14 w-full items-center justify-between gap-3 rounded-xl border border-white/60 bg-[var(--color-surface)] px-3 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5"
       onClick={onSelect}
     >
       <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-app)] text-[var(--color-leather)] shadow-sm">
-          <MapPin size={18} />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-app)] text-[var(--color-leather)] shadow-sm">
+          <MapPin size={17} />
         </span>
-        <span className="min-w-0">
-          <span className="block text-xs font-bold uppercase text-[var(--color-muted)]">
-            Stay
-          </span>
-          <span className="mt-0.5 block truncate text-base font-semibold">
-            {leg.stay_name}
-          </span>
+        <span className="block min-w-0 truncate text-base font-semibold">
+          {leg.stay_name}
         </span>
       </span>
       <ChevronRight className="shrink-0 text-[var(--color-muted)]" size={18} />
