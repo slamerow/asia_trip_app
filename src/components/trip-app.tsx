@@ -99,6 +99,7 @@ export function TripApp({
               activities={activeDay.activities}
               categoryById={categoryById}
               date={activeDay.date}
+              leg={activeDay.leg}
               onSelectActivity={setSelectedActivity}
               weather={weather}
             />
@@ -225,18 +226,23 @@ function TodayPanel({
   activities,
   categoryById,
   date,
+  leg,
   onSelectActivity,
   weather,
 }: {
   activities: Activity[];
   categoryById: Map<string, Category>;
   date: string;
+  leg: Leg;
   onSelectActivity: (activity: Activity) => void;
   weather: WeatherForecast;
 }) {
+  const [isStayOpen, setIsStayOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       <WeatherCard weather={weather} />
+      <StayCard leg={leg} onSelect={() => setIsStayOpen(true)} />
 
       <div className="-mx-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-4 pt-1">
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
@@ -254,14 +260,30 @@ function TodayPanel({
         )}
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
       </div>
+
+      <AnimatePresence>
+        {isStayOpen && (
+          <StayDetail leg={leg} onClose={() => setIsStayOpen(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 function WeatherCard({ weather }: { weather: WeatherForecast }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const canExpand = weather.status === "ready" && weather.outlook.length > 0;
+
   return (
     <div className="rounded-xl border border-white/70 bg-[var(--color-sky)] p-4 text-[var(--color-ink)] shadow-[var(--shadow-card)]">
-      <div className="flex items-start justify-between gap-4">
+      <button
+        type="button"
+        aria-expanded={canExpand ? isExpanded : undefined}
+        className="flex w-full items-start justify-between gap-4 text-left"
+        onClick={() => {
+          if (canExpand) setIsExpanded((expanded) => !expanded);
+        }}
+      >
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[var(--color-muted)]">
             Weather
@@ -287,10 +309,20 @@ function WeatherCard({ weather }: { weather: WeatherForecast }) {
             </>
           )}
         </div>
-        <CloudSun className="shrink-0 text-[var(--color-blue)]" size={36} />
-      </div>
+        <span className="flex shrink-0 items-center gap-2">
+          <CloudSun className="text-[var(--color-blue)]" size={36} />
+          {canExpand && (
+            <ChevronRight
+              className={`text-[var(--color-blue)] transition ${
+                isExpanded ? "rotate-90" : ""
+              }`}
+              size={18}
+            />
+          )}
+        </span>
+      </button>
 
-      {weather.status === "ready" && weather.outlook.length > 0 && (
+      {canExpand && isExpanded && (
         <div className="mt-4 grid grid-cols-2 gap-2">
           {weather.outlook.map((day) => (
             <div
@@ -311,6 +343,68 @@ function WeatherCard({ weather }: { weather: WeatherForecast }) {
         </div>
       )}
     </div>
+  );
+}
+
+function StayCard({ leg, onSelect }: { leg: Leg; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center justify-between gap-4 rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5"
+      onClick={onSelect}
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-app)] text-[var(--color-leather)] shadow-sm">
+          <MapPin size={19} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-[var(--color-muted)]">
+            Stay
+          </span>
+          <span className="mt-0.5 block truncate text-lg font-semibold">
+            {leg.stay_name}
+          </span>
+          <span className="mt-0.5 block truncate text-sm text-[var(--color-muted)]">
+            {leg.city}, {leg.country}
+          </span>
+        </span>
+      </span>
+      <ChevronRight className="shrink-0 text-[var(--color-muted)]" size={20} />
+    </button>
+  );
+}
+
+function StayDetail({ leg, onClose }: { leg: Leg; onClose: () => void }) {
+  return (
+    <Overlay onClose={onClose} closeLabel="Close stay">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">Stay</p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">
+        {leg.stay_name}
+      </h2>
+      <p className="mt-2 text-lg font-semibold text-[var(--color-leather)]">
+        {leg.city}, {leg.country}
+      </p>
+
+      <div className="mt-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
+        <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
+          <MapPin size={16} />
+          Address
+        </p>
+        <p className="mt-4 whitespace-pre-line text-2xl font-semibold leading-snug">
+          {leg.stay_address}
+        </p>
+      </div>
+
+      <a
+        className="mt-5 flex h-12 items-center justify-center gap-2 rounded-lg bg-[var(--color-green)] px-4 text-sm font-bold text-white shadow-lg shadow-emerald-950/20"
+        href={getStayGoogleMapsUrl(leg)}
+        rel="noreferrer"
+        target="_blank"
+      >
+        Open in Google Maps
+        <ExternalLink size={16} />
+      </a>
+    </Overlay>
   );
 }
 
@@ -1665,6 +1759,12 @@ function getGoogleMapsUrl(leg: Leg): string {
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     `${leg.stay_address || leg.city}, ${leg.country}`,
+  )}`;
+}
+
+function getStayGoogleMapsUrl(leg: Leg): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    leg.stay_address || `${leg.stay_name}, ${leg.city}, ${leg.country}`,
   )}`;
 }
 
