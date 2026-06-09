@@ -240,11 +240,10 @@ function TodayPanel({
   const [isStayOpen, setIsStayOpen] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <WeatherCard weather={weather} />
-      <StayCard leg={leg} onSelect={() => setIsStayOpen(true)} />
 
-      <div className="-mx-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-4 pt-1">
+      <div className="-mx-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-2 pt-1">
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
         {activities.length > 0 ? (
           activities.map((activity) => (
@@ -260,6 +259,8 @@ function TodayPanel({
         )}
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
       </div>
+
+      <StayCard leg={leg} onSelect={() => setIsStayOpen(true)} />
 
       <AnimatePresence>
         {isStayOpen && (
@@ -297,6 +298,11 @@ function WeatherCard({ weather }: { weather: WeatherForecast }) {
                 {weather.condition}
                 {weather.rainChance !== null ? ` · ${weather.rainChance}% rain` : ""}
               </p>
+              {canExpand && (
+                <p className="mt-2 text-xs font-bold uppercase text-[var(--color-muted)]">
+                  2-day outlook
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -350,26 +356,23 @@ function StayCard({ leg, onSelect }: { leg: Leg; onSelect: () => void }) {
   return (
     <button
       type="button"
-      className="flex w-full items-center justify-between gap-4 rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5"
+      className="flex h-20 w-full items-center justify-between gap-3 rounded-xl border border-white/60 bg-[var(--color-surface)] px-3 py-2 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5"
       onClick={onSelect}
     >
       <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-app)] text-[var(--color-leather)] shadow-sm">
-          <MapPin size={19} />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-app)] text-[var(--color-leather)] shadow-sm">
+          <MapPin size={18} />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-[var(--color-muted)]">
+          <span className="block text-xs font-bold uppercase text-[var(--color-muted)]">
             Stay
           </span>
-          <span className="mt-0.5 block truncate text-lg font-semibold">
+          <span className="mt-0.5 block truncate text-base font-semibold">
             {leg.stay_name}
-          </span>
-          <span className="mt-0.5 block truncate text-sm text-[var(--color-muted)]">
-            {leg.city}, {leg.country}
           </span>
         </span>
       </span>
-      <ChevronRight className="shrink-0 text-[var(--color-muted)]" size={20} />
+      <ChevronRight className="shrink-0 text-[var(--color-muted)]" size={18} />
     </button>
   );
 }
