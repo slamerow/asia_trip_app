@@ -2,6 +2,7 @@
 
 import type { Activity, Category, Leg, Phrase, TripData } from "@/lib/trip-data";
 import type { WeatherForecast } from "@/lib/weather";
+import { TripMap } from "@/components/trip-map";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
@@ -697,45 +698,76 @@ function MapDetail({ legs, onClose }: { legs: Leg[]; onClose: () => void }) {
   const mappedLegs = legs.filter(
     (leg) => leg.latitude !== null && leg.longitude !== null,
   );
-  const bounds = getMapBounds(mappedLegs);
+  const asiaLegs = mappedLegs.filter((leg) => !isMapOutlier(leg));
+  const mapLegs = asiaLegs.length > 0 ? asiaLegs : mappedLegs;
+  const [selectedLegId, setSelectedLegId] = useState(mapLegs[0]?.leg_id ?? "");
+  const selectedLeg =
+    mapLegs.find((leg) => leg.leg_id === selectedLegId) ?? mapLegs[0];
 
   return (
     <Overlay onClose={onClose} closeLabel="Close map">
       <p className="text-sm font-semibold text-[var(--color-muted)]">Map</p>
       <h2 className="mt-2 text-4xl font-semibold leading-tight">Trip Pins</h2>
 
-      <div className="relative mt-6 aspect-[4/5] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[linear-gradient(135deg,rgba(31,63,45,.18),rgba(177,122,37,.18)),var(--color-surface)] shadow-[var(--shadow-card)]">
-        <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(32,34,23,.18)_1px,transparent_1px),linear-gradient(90deg,rgba(32,34,23,.18)_1px,transparent_1px)] [background-size:42px_42px]" />
-        {mappedLegs.length > 0 ? (
-          mappedLegs.map((leg) => {
-            const position = getMapPosition(leg, bounds);
-
-            return (
-              <a
-                key={leg.leg_id}
-                aria-label={`Open ${leg.city} in Google Maps`}
-                className="absolute flex -translate-x-1/2 -translate-y-full flex-col items-center gap-1 text-center"
-                href={getGoogleMapsUrl(leg)}
-                rel="noreferrer"
-                style={{ left: `${position.x}%`, top: `${position.y}%` }}
-                target="_blank"
-              >
-                <MapPin className="fill-[var(--color-green)] text-[var(--color-green)] drop-shadow" size={28} />
-                <span className="max-w-20 rounded-md bg-[var(--color-app)]/90 px-1.5 py-0.5 text-[10px] font-bold leading-tight shadow-sm">
-                  {shortCity(leg.city)}
-                </span>
-              </a>
-            );
-          })
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-sm font-semibold leading-6 text-[var(--color-muted)]">
-            Add latitude and longitude columns to show pins here.
-          </div>
-        )}
+      <div className="relative mt-6 h-[520px] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
+        <TripMap
+          legs={mapLegs}
+          onSelectLeg={setSelectedLegId}
+          selectedLegId={selectedLeg?.leg_id ?? ""}
+        />
       </div>
 
-      <div className="mt-5 space-y-2">
-        {legs.map((leg) => (
+      {selectedLeg && (
+        <a
+          className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]"
+          href={getGoogleMapsUrl(selectedLeg)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <span className="min-w-0">
+            <span className="block text-lg font-semibold">{selectedLeg.city}</span>
+            <span className="mt-1 block text-sm font-semibold text-[var(--color-muted)]">
+              {formatShortDate(selectedLeg.arrive)} - {formatShortDate(selectedLeg.leave)}
+            </span>
+            <span className="mt-1 block truncate text-sm text-[var(--color-muted)]">
+              {selectedLeg.stay_name}
+            </span>
+          </span>
+          <ExternalLink className="shrink-0 text-[var(--color-muted)]" size={18} />
+        </a>
+      )}
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {mapLegs.map((leg) => (
+          <button
+            key={leg.leg_id}
+            type="button"
+            className={`rounded-lg border p-3 text-left transition ${
+              leg.leg_id === selectedLeg?.leg_id
+                ? "border-[var(--color-leather)] bg-[var(--color-surface)]"
+                : "border-white/60 bg-[var(--color-surface)]/70"
+            }`}
+            onClick={() => setSelectedLegId(leg.leg_id)}
+          >
+            <span className="block truncate text-sm font-semibold">{leg.city}</span>
+            <span className="mt-1 block text-xs font-semibold text-[var(--color-muted)]">
+              {formatShortDate(leg.arrive)}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {mappedLegs.length > mapLegs.length && (
+        <p className="mt-4 text-sm font-semibold text-[var(--color-muted)]">
+          Seattle and Hawaii are left off this map so Asia stays readable.
+        </p>
+      )}
+
+      {legs.length > mappedLegs.length && (
+        <div className="mt-4 space-y-2">
+          {legs
+            .filter((leg) => leg.latitude === null || leg.longitude === null)
+            .map((leg) => (
           <a
             key={leg.leg_id}
             className="flex items-center justify-between gap-3 rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
@@ -751,8 +783,9 @@ function MapDetail({ legs, onClose }: { legs: Leg[]; onClose: () => void }) {
             </span>
             <ExternalLink className="shrink-0 text-[var(--color-muted)]" size={17} />
           </a>
-        ))}
-      </div>
+            ))}
+        </div>
+      )}
     </Overlay>
   );
 }
@@ -1572,47 +1605,8 @@ function isEnglishLanguage(language: string): boolean {
   return ["english", "en"].includes(language.trim().toLowerCase());
 }
 
-type MapBounds = {
-  maxLat: number;
-  maxLng: number;
-  minLat: number;
-  minLng: number;
-};
-
-function getMapBounds(legs: Leg[]): MapBounds {
-  const latitudes = legs.flatMap((leg) =>
-    leg.latitude === null ? [] : [leg.latitude],
-  );
-  const longitudes = legs.flatMap((leg) =>
-    leg.longitude === null ? [] : [leg.longitude],
-  );
-
-  if (latitudes.length === 0 || longitudes.length === 0) {
-    return { maxLat: 1, maxLng: 1, minLat: 0, minLng: 0 };
-  }
-
-  const minLat = Math.min(...latitudes);
-  const maxLat = Math.max(...latitudes);
-  const minLng = Math.min(...longitudes);
-  const maxLng = Math.max(...longitudes);
-
-  return {
-    maxLat: maxLat === minLat ? maxLat + 0.05 : maxLat,
-    maxLng: maxLng === minLng ? maxLng + 0.05 : maxLng,
-    minLat: maxLat === minLat ? minLat - 0.05 : minLat,
-    minLng: maxLng === minLng ? minLng - 0.05 : minLng,
-  };
-}
-
-function getMapPosition(leg: Leg, bounds: MapBounds): { x: number; y: number } {
-  if (leg.latitude === null || leg.longitude === null) {
-    return { x: 50, y: 50 };
-  }
-
-  const x = ((leg.longitude - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 80 + 10;
-  const y = ((bounds.maxLat - leg.latitude) / (bounds.maxLat - bounds.minLat)) * 80 + 10;
-
-  return { x, y };
+function isMapOutlier(leg: Leg): boolean {
+  return leg.country.trim().toLowerCase() === "us";
 }
 
 function getGoogleMapsUrl(leg: Leg): string {
