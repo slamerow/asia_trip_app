@@ -18,6 +18,15 @@ import {
 import { useMemo, useState } from "react";
 
 type TabId = "legs" | "categories" | "today" | "calendar";
+type CalendarSegment = {
+  background: string;
+  dateLabel: string;
+  key: string;
+  label: string;
+  span: number;
+  startColumn: number;
+  title: string;
+};
 
 const tabs: Array<{ id: TabId; label: string; icon: typeof Sparkles }> = [
   { id: "legs", label: "Legs", icon: MapPinned },
@@ -76,7 +85,7 @@ export function TripApp({ data }: { data: TripData }) {
             <CategoriesPanel categories={data.categories} activities={data.activities} />
           )}
           {activeTab === "calendar" && (
-            <CalendarPanel activities={data.activities} legs={data.legs} />
+            <CalendarPanel legs={data.legs} />
           )}
         </section>
 
@@ -283,23 +292,7 @@ function CategoriesPanel({
   );
 }
 
-function CalendarPanel({
-  activities,
-  legs,
-}: {
-  activities: Activity[];
-  legs: Leg[];
-}) {
-  const activityCountByDate = useMemo(() => {
-    const counts = new Map<string, number>();
-
-    activities.forEach((activity) => {
-      counts.set(activity.date, (counts.get(activity.date) ?? 0) + 1);
-    });
-
-    return counts;
-  }, [activities]);
-
+function CalendarPanel({ legs }: { legs: Leg[] }) {
   const visibleDates = useMemo(() => {
     const start = legs[0]?.arrive;
     const end = legs.at(-1)?.leave;
@@ -308,39 +301,47 @@ function CalendarPanel({
 
     return getDateRange(start, end).slice(0, 35);
   }, [legs]);
+  const calendarRows = useMemo(
+    () => buildCalendarRows(visibleDates, legs),
+    [visibleDates, legs],
+  );
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
         <p className="text-sm font-semibold text-[var(--color-muted)]">
-          First 35 trip days
+          Trip days by place
         </p>
-        <div className="mt-3 grid grid-cols-7 gap-1">
-          {visibleDates.map((date) => {
-            const day = Number(date.slice(-2));
-            const activityCount = activityCountByDate.get(date) ?? 0;
-
-            return (
-              <button
-                key={date}
-                type="button"
-                title={`${formatLongDate(date)}: ${activityCount} activities`}
-                className="flex aspect-square flex-col items-center justify-center rounded-md bg-white/80 text-sm font-semibold text-[var(--color-ink)] shadow-sm"
-              >
-                <span>{day}</span>
-                <span
-                  className={`mt-1 h-1.5 w-1.5 rounded-full ${
-                    activityCount > 0 ? "bg-[var(--color-green)]" : "bg-transparent"
-                  }`}
-                />
-              </button>
-            );
-          })}
+        <div className="mt-3 space-y-1.5">
+          {calendarRows.map((row, rowIndex) => (
+            <div key={rowIndex} className="grid grid-cols-7 gap-1">
+              {row.map((segment) => (
+                <button
+                  key={segment.key}
+                  type="button"
+                  title={segment.title}
+                  className="flex min-h-[62px] flex-col justify-between rounded-md border border-white/45 px-2 py-1.5 text-left text-[var(--color-ink)] shadow-sm"
+                  style={{
+                    background: segment.background,
+                    gridColumn: `${segment.startColumn} / span ${segment.span}`,
+                  }}
+                >
+                  <span className="text-[10px] font-semibold leading-none text-[var(--color-muted)]">
+                    {segment.dateLabel}
+                  </span>
+                  {segment.label && (
+                    <span className="truncate text-[11px] font-bold leading-tight">
+                      {segment.label}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
       <p className="text-sm leading-6 text-[var(--color-muted)]">
-        Full month navigation comes next. This view is already reading activity
-        dates from the sheet.
+        Split days show a transition from one place to the next.
       </p>
     </div>
   );
@@ -499,6 +500,135 @@ function formatShortDate(date: string): string {
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${date}T00:00:00Z`));
+}
+
+function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
+  const labeledLegIds = new Set<string>();
+  const rows: CalendarSegment[][] = [];
+
+  for (let rowStart = 0; rowStart < dates.length; rowStart += 7) {
+    const weekDates = dates.slice(rowStart, rowStart + 7);
+    const row: CalendarSegment[] = [];
+    let index = 0;
+
+    while (index < weekDates.length) {
+      const date = weekDates[index];
+      const leg = getLegForDate(legs, date);
+      const previousLeg = getTransitionFromLeg(legs, date, leg);
+
+      if (leg && previousLeg) {
+        const legIndex = getLegIndex(legs, leg);
+        const previousLegIndex = getLegIndex(legs, previousLeg);
+
+        row.push({
+          background: `linear-gradient(to bottom, ${getLegColor(previousLegIndex)} 0 50%, ${getLegColor(legIndex)} 50% 100%)`,
+          dateLabel: formatDateNumber(date),
+          key: `${date}-${previousLeg.leg_id}-${leg.leg_id}`,
+          label: `${shortCity(previousLeg.city)} / ${shortCity(leg.city)}`,
+          span: 1,
+          startColumn: index + 1,
+          title: `${formatLongDate(date)}: ${previousLeg.city} to ${leg.city}`,
+        });
+
+        index += 1;
+        continue;
+      }
+
+      let span = 1;
+
+      while (index + span < weekDates.length) {
+        const nextDate = weekDates[index + span];
+        const nextLeg = getLegForDate(legs, nextDate);
+        const nextPreviousLeg = getTransitionFromLeg(legs, nextDate, nextLeg);
+
+        if (nextPreviousLeg || nextLeg?.leg_id !== leg?.leg_id) break;
+
+        span += 1;
+      }
+
+      const segmentDates = weekDates.slice(index, index + span);
+      const label =
+        leg && !labeledLegIds.has(leg.leg_id) ? shortCity(leg.city) : "";
+
+      if (leg && label) {
+        labeledLegIds.add(leg.leg_id);
+      }
+
+      row.push({
+        background: getLegColor(getLegIndex(legs, leg)),
+        dateLabel: formatSegmentDateLabel(segmentDates),
+        key: `${segmentDates[0]}-${leg?.leg_id ?? "none"}`,
+        label,
+        span,
+        startColumn: index + 1,
+        title: `${formatSegmentTitle(segmentDates)}: ${leg?.city ?? "Trip day"}`,
+      });
+
+      index += span;
+    }
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function getLegForDate(legs: Leg[], date: string): Leg | undefined {
+  return legs.find((leg) => date >= leg.arrive && date < leg.leave);
+}
+
+function getTransitionFromLeg(
+  legs: Leg[],
+  date: string,
+  currentLeg: Leg | undefined,
+): Leg | undefined {
+  const previousLeg = legs.find((leg) => leg.leave === date);
+
+  if (!previousLeg || !currentLeg || previousLeg.leg_id === currentLeg.leg_id) {
+    return undefined;
+  }
+
+  return previousLeg;
+}
+
+function getLegIndex(legs: Leg[], leg: Leg | undefined): number {
+  if (!leg) return 0;
+
+  const index = legs.findIndex((item) => item.leg_id === leg.leg_id);
+  return index >= 0 ? index : 0;
+}
+
+function getLegColor(index: number): string {
+  const colors = [
+    "rgba(31, 63, 45, 0.18)",
+    "rgba(177, 122, 37, 0.22)",
+    "rgba(90, 54, 32, 0.18)",
+    "rgba(40, 95, 101, 0.18)",
+    "rgba(132, 92, 37, 0.2)",
+    "rgba(76, 98, 57, 0.2)",
+  ];
+
+  return colors[index % colors.length];
+}
+
+function shortCity(city: string): string {
+  return city.replace(/\s*\(.+?\)\s*/g, "").trim();
+}
+
+function formatDateNumber(date: string): string {
+  return String(Number(date.slice(-2)));
+}
+
+function formatSegmentDateLabel(dates: string[]): string {
+  if (dates.length === 1) return formatDateNumber(dates[0]);
+
+  return `${formatDateNumber(dates[0])}-${formatDateNumber(dates.at(-1) ?? dates[0])}`;
+}
+
+function formatSegmentTitle(dates: string[]): string {
+  if (dates.length === 1) return formatLongDate(dates[0]);
+
+  return `${formatLongDate(dates[0])} - ${formatLongDate(dates.at(-1) ?? dates[0])}`;
 }
 
 function getDateRange(start: string, endExclusive: string): string[] {
