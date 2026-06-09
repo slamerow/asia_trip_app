@@ -55,6 +55,7 @@ export function TripApp({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const categoryById = useMemo(
     () => new Map(data.categories.map((category) => [category.category_id, category])),
@@ -78,7 +79,7 @@ export function TripApp({
               </h1>
             </div>
             <div className="flex shrink-0 gap-2">
-              <IconButton label="Search">
+              <IconButton label="Search" onClick={() => setIsSearchOpen(true)}>
                 <Search size={19} />
               </IconButton>
               <IconButton label="Map" onClick={() => setIsMapOpen(true)}>
@@ -187,6 +188,18 @@ export function TripApp({
               onClose={() => setSelectedDate(null)}
               onSelectActivity={(activity) => {
                 setSelectedDate(null);
+                setSelectedActivity(activity);
+              }}
+            />
+          )}
+          {isSearchOpen && (
+            <SearchDetail
+              activities={data.activities}
+              categoryById={categoryById}
+              legs={data.legs}
+              onClose={() => setIsSearchOpen(false)}
+              onSelectActivity={(activity) => {
+                setIsSearchOpen(false);
                 setSelectedActivity(activity);
               }}
             />
@@ -896,6 +909,95 @@ function DateDetail({
         ) : (
           <p className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-sm font-semibold text-[var(--color-muted)] shadow-[var(--shadow-card)]">
             No plans on the sheet for this day.
+          </p>
+        )}
+      </div>
+    </Overlay>
+  );
+}
+
+function SearchDetail({
+  activities,
+  categoryById,
+  legs,
+  onClose,
+  onSelectActivity,
+}: {
+  activities: Activity[];
+  categoryById: Map<string, Category>;
+  legs: Leg[];
+  onClose: () => void;
+  onSelectActivity: (activity: Activity) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const cleanQuery = query.trim().toLowerCase();
+  const results = useMemo(() => {
+    if (cleanQuery.length < 2) return [];
+
+    return activities
+      .filter((activity) => {
+        const haystack = `${activity.title} ${activity.description ?? ""}`.toLowerCase();
+        return haystack.includes(cleanQuery);
+      })
+      .slice(0, 40);
+  }, [activities, cleanQuery]);
+
+  return (
+    <Overlay onClose={onClose} closeLabel="Close search">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">Search</p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">Activities</h2>
+
+      <label className="mt-6 block">
+        <span className="sr-only">Search activity titles and descriptions</span>
+        <div className="flex h-12 items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 shadow-[var(--shadow-card)]">
+          <Search className="shrink-0 text-[var(--color-muted)]" size={18} />
+          <input
+            autoFocus
+            className="min-w-0 flex-1 bg-transparent text-base font-semibold text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]"
+            inputMode="search"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Activity title or notes"
+            type="search"
+            value={query}
+          />
+        </div>
+      </label>
+
+      <div className="mt-6 space-y-3">
+        {cleanQuery.length < 2 ? (
+          <p className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-sm font-semibold text-[var(--color-muted)] shadow-[var(--shadow-card)]">
+            Type at least two letters.
+          </p>
+        ) : results.length > 0 ? (
+          results.map((activity) => {
+            const leg = legs.find((item) => item.leg_id === activity.leg_id);
+            const category = categoryById.get(activity.category);
+
+            return (
+              <button
+                key={activity.activity_id}
+                type="button"
+                className="w-full rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
+                onClick={() => onSelectActivity(activity)}
+              >
+                <span className="block text-sm font-semibold text-[var(--color-muted)]">
+                  {formatShortDate(activity.date)} · {leg?.city ?? "Trip"}
+                  {category ? ` · ${category.emoji}` : ""}
+                </span>
+                <span className="mt-1 block text-lg font-semibold leading-snug">
+                  {activity.title}
+                </span>
+                {activity.description && (
+                  <span className="mt-2 line-clamp-2 block text-sm leading-6 text-[var(--color-muted)]">
+                    {activity.description}
+                  </span>
+                )}
+              </button>
+            );
+          })
+        ) : (
+          <p className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-sm font-semibold text-[var(--color-muted)] shadow-[var(--shadow-card)]">
+            No matching activities.
           </p>
         )}
       </div>
