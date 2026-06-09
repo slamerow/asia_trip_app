@@ -93,27 +93,17 @@ export function TripApp({ data }: { data: TripData }) {
                   type="button"
                   className={`flex flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition ${
                     isActive
-                      ? isToday
-                        ? "bg-[var(--color-brass)] text-white shadow-2xl shadow-amber-950/40"
-                        : "bg-[var(--color-green)] text-white shadow-lg shadow-emerald-950/25"
+                      ? "bg-[var(--color-green)] text-white shadow-lg shadow-emerald-950/25"
                       : "text-[var(--color-muted)] hover:bg-white/70"
                   } ${
                     isToday
-                      ? "h-[78px] -translate-y-5 rounded-2xl border border-white/50 ring-2 ring-[var(--color-app)]"
+                      ? "h-[68px] -translate-y-3 border border-white/40"
                       : "h-14"
                   }`}
                   onClick={() => setActiveTab(tab.id)}
                 >
-                  <span
-                    className={
-                      isToday
-                        ? "flex h-9 w-9 items-center justify-center rounded-full bg-white/16"
-                        : ""
-                    }
-                  >
-                    <Icon size={isToday ? 25 : 20} strokeWidth={2.2} />
-                  </span>
-                  <span className={isToday ? "text-[13px]" : ""}>{tab.label}</span>
+                  <Icon size={isToday ? 23 : 20} strokeWidth={2.2} />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
