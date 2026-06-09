@@ -18,7 +18,7 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 type TabId = "legs" | "categories" | "today" | "calendar";
 type CalendarSegment = {
@@ -26,6 +26,7 @@ type CalendarSegment = {
   dateLabel: string;
   key: string;
   label: string;
+  legId: string | null;
   span: number;
   startColumn: number;
   title: string;
@@ -44,7 +45,6 @@ export function TripApp({ data }: { data: TripData }) {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [selectedLeg, setSelectedLeg] = useState<Leg | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
 
@@ -105,7 +105,7 @@ export function TripApp({ data }: { data: TripData }) {
           {activeTab === "calendar" && (
             <CalendarPanel
               legs={data.legs}
-              onSelectDate={setSelectedDate}
+              onSelectLeg={setSelectedLeg}
             />
           )}
         </section>
@@ -164,18 +164,6 @@ export function TripApp({ data }: { data: TripData }) {
               onClose={() => setSelectedCategory(null)}
               onSelectActivity={(activity) => {
                 setSelectedCategory(null);
-                setSelectedActivity(activity);
-              }}
-            />
-          )}
-          {selectedDate && (
-            <DateDetail
-              activities={data.activities.filter((activity) => activity.date === selectedDate)}
-              date={selectedDate}
-              leg={getLegForDate(data.legs, selectedDate)}
-              onClose={() => setSelectedDate(null)}
-              onSelectActivity={(activity) => {
-                setSelectedDate(null);
                 setSelectedActivity(activity);
               }}
             />
@@ -372,10 +360,10 @@ function CategoriesPanel({
 
 function CalendarPanel({
   legs,
-  onSelectDate,
+  onSelectLeg,
 }: {
   legs: Leg[];
-  onSelectDate: (date: string) => void;
+  onSelectLeg: (leg: Leg) => void;
 }) {
   const tripDates = useMemo(() => {
     const start = legs[0]?.arrive;
@@ -436,7 +424,10 @@ function CalendarPanel({
                     background: segment.background,
                     gridColumn: `${segment.startColumn} / span ${segment.span}`,
                   }}
-                  onClick={() => onSelectDate(segment.value)}
+                  onClick={() => {
+                    const leg = legs.find((item) => item.leg_id === segment.legId);
+                    if (leg) onSelectLeg(leg);
+                  }}
                 >
                   <span className="text-[10px] font-semibold leading-none text-[var(--color-muted)]">
                     {segment.dateLabel}
@@ -503,9 +494,9 @@ function ActivityDetail({
         animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
         drag="y"
         dragConstraints={{ bottom: 0, top: 0 }}
-        dragElastic={{ bottom: 0.35, top: 0.02 }}
+        dragElastic={{ bottom: 0.45, top: 0.02 }}
         onDragEnd={(_, info) => {
-          if (info.offset.y > 90 || info.velocity.y > 650) {
+          if (info.offset.y > 68 || info.velocity.y > 480) {
             onClose();
           }
         }}
@@ -639,10 +630,12 @@ function LegDetail({
   onClose: () => void;
   onSelectActivity: (activity: Activity) => void;
 }) {
+  const [isStayOpen, setIsStayOpen] = useState(false);
+
   return (
     <Overlay onClose={onClose} closeLabel="Close leg">
       <p className="text-sm font-semibold text-[var(--color-muted)]">
-        {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} · {formatNights(leg.nights)}
+        {formatLegDateRange(leg)} · {formatNights(leg.nights)}
       </p>
       <h2 className="mt-2 text-4xl font-semibold leading-tight">{leg.city}</h2>
       <p className="mt-1 text-lg font-semibold text-[var(--color-leather)]">
@@ -650,16 +643,30 @@ function LegDetail({
       </p>
       <p className="mt-5 text-base leading-7">{leg.why}</p>
 
-      <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
-        <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
-          <MapPin size={16} />
-          Stay
-        </p>
-        <p className="mt-2 font-semibold">{leg.stay_name}</p>
-        <p className="mt-1 text-sm leading-6 text-[var(--color-muted)]">
-          {leg.stay_address}
-        </p>
-      </div>
+      <button
+        type="button"
+        className="mt-6 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
+        onClick={() => setIsStayOpen((isOpen) => !isOpen)}
+      >
+        <span className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
+            <MapPin size={16} />
+            Stay
+          </span>
+          <ChevronRight
+            className={`shrink-0 text-[var(--color-muted)] transition ${
+              isStayOpen ? "rotate-90" : ""
+            }`}
+            size={18}
+          />
+        </span>
+        <span className="mt-2 block font-semibold">{leg.stay_name}</span>
+        {isStayOpen && (
+          <span className="mt-2 block text-sm leading-6 text-[var(--color-muted)]">
+            {leg.stay_address}
+          </span>
+        )}
+      </button>
 
       <div className="mt-6 space-y-3">
         {activities.slice(0, 6).map((activity) => (
@@ -722,55 +729,6 @@ function CategoryDetail({
   );
 }
 
-function DateDetail({
-  activities,
-  date,
-  leg,
-  onClose,
-  onSelectActivity,
-}: {
-  activities: Activity[];
-  date: string;
-  leg: Leg | undefined;
-  onClose: () => void;
-  onSelectActivity: (activity: Activity) => void;
-}) {
-  return (
-    <Overlay onClose={onClose} closeLabel="Close date">
-      <p className="text-sm font-semibold text-[var(--color-muted)]">
-        {formatLongDate(date)}
-      </p>
-      <h2 className="mt-2 text-4xl font-semibold leading-tight">
-        {leg?.city ?? "Trip Day"}
-      </h2>
-
-      <div className="mt-6 space-y-3">
-        {activities.length > 0 ? (
-          activities.map((activity) => (
-            <button
-              key={activity.activity_id}
-              type="button"
-              className="w-full rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
-              onClick={() => onSelectActivity(activity)}
-            >
-              <span className="block text-sm font-semibold text-[var(--color-muted)]">
-                {activity.start_time ? formatTimeRange(activity) : "Anytime"}
-              </span>
-              <span className="mt-1 block text-lg font-semibold leading-snug">
-                {activity.title}
-              </span>
-            </button>
-          ))
-        ) : (
-          <p className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-sm font-semibold text-[var(--color-muted)] shadow-[var(--shadow-card)]">
-            No plans on the sheet for this day.
-          </p>
-        )}
-      </div>
-    </Overlay>
-  );
-}
-
 function PhrasebookDetail({
   activeLanguage,
   onClose,
@@ -784,6 +742,7 @@ function PhrasebookDetail({
   const [expandedLanguage, setExpandedLanguage] = useState<string | null>(
     defaultLanguage,
   );
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [selectedPhrase, setSelectedPhrase] = useState<Phrase | null>(null);
   const groupedPhrases = useMemo(() => {
     const languageGroups = new Map<string, Map<string, Phrase[]>>();
@@ -822,7 +781,10 @@ function PhrasebookDetail({
               <button
                 type="button"
                 className="flex w-full items-center justify-between gap-3 text-left"
-                onClick={() => setExpandedLanguage(isExpanded ? null : language)}
+                onClick={() => {
+                  setExpandedLanguage(isExpanded ? null : language);
+                  setExpandedCategory(null);
+                }}
               >
                 <span>
                   <span className="block text-lg font-semibold">{language}</span>
@@ -839,33 +801,21 @@ function PhrasebookDetail({
               </button>
 
               {isExpanded && (
-                <div className="mt-4 space-y-5">
+                <div className="mt-4 space-y-2">
                   {Array.from(categoryGroups.entries()).map(([category, items]) => (
-                    <div key={`${language}-${category}`}>
-                      <h3 className="text-sm font-bold uppercase text-[var(--color-muted)]">
-                        {category}
-                      </h3>
-                      <div className="mt-2 space-y-2">
-                        {items.map((phrase) => (
-                          <button
-                            key={`${language}-${category}-${phrase.english}-${phrase.script}`}
-                            type="button"
-                            className="w-full rounded-xl border border-white/60 bg-[var(--color-app)]/55 p-4 text-left shadow-sm"
-                            onClick={() => setSelectedPhrase(phrase)}
-                          >
-                            <span className="block text-sm font-semibold text-[var(--color-muted)]">
-                              {phrase.english}
-                            </span>
-                            <span className="mt-1 block text-xl font-semibold">
-                              {phrase.script}
-                            </span>
-                            <span className="mt-1 block text-sm font-semibold text-[var(--color-leather)]">
-                              {phrase.pronunciation}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <PhraseCategoryGroup
+                      key={`${language}-${category}`}
+                      category={category}
+                      isExpanded={expandedCategory === `${language}-${category}`}
+                      onToggle={() => {
+                        const key = `${language}-${category}`;
+                        setExpandedCategory((current) =>
+                          current === key ? null : key,
+                        );
+                      }}
+                      onSelectPhrase={setSelectedPhrase}
+                      phrases={items}
+                    />
                   ))}
                 </div>
               )}
@@ -917,11 +867,70 @@ function PhraseDisplay({
         <span className="mt-8 max-w-full text-balance text-5xl font-semibold leading-tight sm:text-7xl">
           {phrase.script}
         </span>
-        <span className="mt-8 text-xl font-semibold text-[var(--color-leather)]">
-          {phrase.pronunciation}
-        </span>
       </motion.button>
     </motion.div>
+  );
+}
+
+function PhraseCategoryGroup({
+  category,
+  isExpanded,
+  onSelectPhrase,
+  onToggle,
+  phrases,
+}: {
+  category: string;
+  isExpanded: boolean;
+  onSelectPhrase: (phrase: Phrase) => void;
+  onToggle: () => void;
+  phrases: Phrase[];
+}) {
+  return (
+    <div className="rounded-xl border border-white/60 bg-[var(--color-app)]/45 p-3 shadow-sm">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 text-left"
+        onClick={onToggle}
+      >
+        <span>
+          <span className="block text-sm font-bold uppercase text-[var(--color-muted)]">
+            {category}
+          </span>
+          <span className="mt-1 block text-sm text-[var(--color-muted)]">
+            {phrases.length} phrases
+          </span>
+        </span>
+        <ChevronRight
+          className={`shrink-0 text-[var(--color-muted)] transition ${
+            isExpanded ? "rotate-90" : ""
+          }`}
+          size={18}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="mt-3 space-y-2">
+          {phrases.map((phrase) => (
+            <button
+              key={`${category}-${phrase.english}-${phrase.script}`}
+              type="button"
+              className="w-full rounded-xl border border-white/60 bg-[var(--color-app)]/70 p-4 text-left shadow-sm"
+              onClick={() => onSelectPhrase(phrase)}
+            >
+              <span className="block text-sm font-semibold text-[var(--color-muted)]">
+                {phrase.english}
+              </span>
+              <span className="mt-1 block text-xl font-semibold">
+                {phrase.script}
+              </span>
+              <span className="mt-1 block text-sm font-semibold text-[var(--color-leather)]">
+                {phrase.pronunciation}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -981,6 +990,9 @@ function Overlay({
   closeLabel: string;
   onClose: () => void;
 }) {
+  const touchStartY = useRef<number | null>(null);
+  const touchStartScrollTop = useRef(0);
+
   return (
     <motion.div
       className="fixed inset-0 z-30 bg-stone-950/35 backdrop-blur-sm"
@@ -993,13 +1005,19 @@ function Overlay({
         className="mx-auto flex max-h-screen min-h-screen w-full max-w-[440px] flex-col overflow-y-auto bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl"
         initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
         animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
-        drag="y"
-        dragConstraints={{ bottom: 0, top: 0 }}
-        dragElastic={{ bottom: 0.35, top: 0.02 }}
-        onDragEnd={(_, info) => {
-          if (info.offset.y > 90 || info.velocity.y > 650) {
+        onTouchEnd={(event) => {
+          const startY = touchStartY.current;
+          const touch = event.changedTouches[0];
+
+          if (startY !== null && touch && touch.clientY - startY > 68 && touchStartScrollTop.current < 8) {
             onClose();
           }
+
+          touchStartY.current = null;
+        }}
+        onTouchStart={(event) => {
+          touchStartY.current = event.touches[0]?.clientY ?? null;
+          touchStartScrollTop.current = event.currentTarget.scrollTop;
         }}
         exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
         transition={{ damping: 28, stiffness: 260, type: "spring" }}
@@ -1078,6 +1096,24 @@ function formatShortDate(date: string): string {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
+function formatLegDateRange(leg: Leg): string {
+  const arrive = new Date(`${leg.arrive}T00:00:00Z`);
+  const leave = new Date(`${leg.leave}T00:00:00Z`);
+  const sameYear = arrive.getUTCFullYear() === leave.getUTCFullYear();
+
+  return `${new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+    year: sameYear ? undefined : "numeric",
+  }).format(arrive)} - ${new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(leave)}`;
+}
+
 function formatNights(nights: number): string {
   return `${nights} ${nights === 1 ? "night" : "nights"}`;
 }
@@ -1112,6 +1148,7 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
           dateLabel: formatDateNumber(date),
           key: `${date}-${previousLeg.leg_id}-${leg.leg_id}`,
           label: `${shortCity(previousLeg.city)} / ${shortCity(leg.city)}`,
+          legId: leg.leg_id,
           span: 1,
           startColumn: index + 1,
           title: `${formatLongDate(date)}: ${previousLeg.city} to ${leg.city}`,
@@ -1142,6 +1179,7 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
         dateLabel: formatSegmentDateLabel(segmentDates),
         key: `${segmentDates[0]}-${leg?.leg_id ?? "none"}`,
         label,
+        legId: leg?.leg_id ?? null,
         span,
         startColumn: index + 1,
         title: `${formatSegmentTitle(segmentDates)}: ${leg?.city ?? "Trip day"}`,
