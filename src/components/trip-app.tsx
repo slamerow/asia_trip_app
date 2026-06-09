@@ -81,28 +81,23 @@ export function TripApp({ data }: { data: TripData }) {
         </section>
 
         <nav className="fixed bottom-0 left-1/2 z-20 w-full max-w-[440px] -translate-x-1/2 border-t border-[var(--color-border)] bg-[var(--color-app)]/96 px-3 pb-3 pt-2 backdrop-blur">
-          <div className="grid grid-cols-4 items-end gap-1">
+          <div className="grid grid-cols-4 gap-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-              const isToday = tab.id === "today";
 
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  className={`flex flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition ${
+                  className={`flex h-14 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition ${
                     isActive
                       ? "bg-[var(--color-green)] text-white shadow-lg shadow-emerald-950/25"
                       : "text-[var(--color-muted)] hover:bg-white/70"
-                  } ${
-                    isToday
-                      ? "h-[68px] -translate-y-3 border border-white/40"
-                      : "h-14"
                   }`}
                   onClick={() => setActiveTab(tab.id)}
                 >
-                  <Icon size={isToday ? 23 : 20} strokeWidth={2.2} />
+                  <Icon size={20} strokeWidth={2.2} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -273,10 +268,10 @@ function CategoriesPanel({
         <button
           key={category.category_id}
           type="button"
-          className="aspect-[1.08] rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5"
+          className="min-h-[170px] rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5"
         >
           <span className="block text-4xl">{category.emoji}</span>
-          <span className="mt-4 line-clamp-2 block text-lg font-semibold leading-tight">
+          <span className="mt-4 block text-base font-semibold leading-snug">
             {category.description}
           </span>
           <span className="mt-2 block text-sm text-[var(--color-muted)]">
