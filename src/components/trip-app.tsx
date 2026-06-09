@@ -1057,58 +1057,81 @@ function PhrasebookDetail({
   onClose: () => void;
   phrases: Phrase[];
 }) {
-  const defaultLanguage = isEnglishLanguage(activeLanguage) ? null : activeLanguage;
+  const groupedPhrases = useMemo(() => {
+    const languageGroups = new Map<string, PhraseLanguageGroup>();
+
+    phrases.forEach((phrase) => {
+      const group =
+        languageGroups.get(phrase.language) ??
+        ({
+          categories: new Map<string, Phrase[]>(),
+          language: phrase.language,
+          phraseCount: 0,
+        } satisfies PhraseLanguageGroup);
+
+      group.categories.set(phrase.category, [
+        ...(group.categories.get(phrase.category) ?? []),
+        phrase,
+      ]);
+      group.phraseCount += 1;
+      languageGroups.set(phrase.language, group);
+    });
+
+    const preferredLanguage = isEnglishLanguage(activeLanguage) ? null : activeLanguage;
+
+    return Array.from(languageGroups.values()).sort((first, second) => {
+      if (first.language === preferredLanguage) return -1;
+      if (second.language === preferredLanguage) return 1;
+      return first.language.localeCompare(second.language);
+    });
+  }, [activeLanguage, phrases]);
+
+  const defaultLanguage =
+    groupedPhrases.find((group) => group.language === activeLanguage)?.language ??
+    (isEnglishLanguage(activeLanguage) ? null : groupedPhrases[0]?.language ?? null);
+  const defaultCategory = defaultLanguage
+    ? getFirstPhraseCategoryKey(groupedPhrases, defaultLanguage)
+    : null;
   const [expandedLanguage, setExpandedLanguage] = useState<string | null>(
     defaultLanguage,
   );
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(
+    defaultCategory,
+  );
   const [selectedPhrase, setSelectedPhrase] = useState<Phrase | null>(null);
-  const groupedPhrases = useMemo(() => {
-    const languageGroups = new Map<string, Map<string, Phrase[]>>();
-
-    phrases.forEach((phrase) => {
-      const categoryGroups =
-        languageGroups.get(phrase.language) ?? new Map<string, Phrase[]>();
-      categoryGroups.set(phrase.category, [
-        ...(categoryGroups.get(phrase.category) ?? []),
-        phrase,
-      ]);
-      languageGroups.set(phrase.language, categoryGroups);
-    });
-
-    return Array.from(languageGroups.entries());
-  }, [phrases]);
 
   return (
     <Overlay onClose={onClose} closeLabel="Close phrases">
       <p className="text-sm font-semibold text-[var(--color-muted)]">Phrasebook</p>
       <h2 className="mt-2 text-4xl font-semibold leading-tight">Useful Words</h2>
 
-      <div className="mt-6 space-y-3">
-        {groupedPhrases.map(([language, categoryGroups]) => {
-          const isExpanded = expandedLanguage === language;
-          const phraseCount = Array.from(categoryGroups.values()).reduce(
-            (total, items) => total + items.length,
-            0,
-          );
+      <div className="mt-6 divide-y divide-[var(--color-border)]/35 overflow-hidden rounded-xl border border-white/60 bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
+        {groupedPhrases.map((group) => {
+          const isExpanded = expandedLanguage === group.language;
 
           return (
             <section
-              key={language}
-              className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]"
+              key={group.language}
+              className="bg-[var(--color-surface)]"
             >
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 text-left"
+                aria-expanded={isExpanded}
+                className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/25"
                 onClick={() => {
-                  setExpandedLanguage(isExpanded ? null : language);
-                  setExpandedCategory(null);
+                  setExpandedLanguage(isExpanded ? null : group.language);
+                  setExpandedCategory(
+                    isExpanded
+                      ? null
+                      : getFirstPhraseCategoryKey(groupedPhrases, group.language),
+                  );
                 }}
               >
                 <span>
-                  <span className="block text-lg font-semibold">{language}</span>
+                  <span className="block text-lg font-semibold">{group.language}</span>
                   <span className="mt-1 block text-sm text-[var(--color-muted)]">
-                    {phraseCount} phrases
+                    {formatPhraseCount(group.categories.size, "category")} ·{" "}
+                    {formatPhraseCount(group.phraseCount, "phrase")}
                   </span>
                 </span>
                 <ChevronRight
@@ -1120,14 +1143,16 @@ function PhrasebookDetail({
               </button>
 
               {isExpanded && (
-                <div className="mt-4 space-y-2">
-                  {Array.from(categoryGroups.entries()).map(([category, items]) => (
+                <div className="border-t border-[var(--color-border)]/25 bg-[var(--color-app)]/30 px-3 py-3">
+                  {Array.from(group.categories.entries()).map(([category, items]) => (
                     <PhraseCategoryGroup
-                      key={`${language}-${category}`}
+                      key={`${group.language}-${category}`}
                       category={category}
-                      isExpanded={expandedCategory === `${language}-${category}`}
+                      isExpanded={
+                        expandedCategory === getPhraseCategoryKey(group.language, category)
+                      }
                       onToggle={() => {
-                        const key = `${language}-${category}`;
+                        const key = getPhraseCategoryKey(group.language, category);
                         setExpandedCategory((current) =>
                           current === key ? null : key,
                         );
@@ -1154,6 +1179,12 @@ function PhrasebookDetail({
     </Overlay>
   );
 }
+
+type PhraseLanguageGroup = {
+  categories: Map<string, Phrase[]>;
+  language: string;
+  phraseCount: number;
+};
 
 function PhraseDisplay({
   onClose,
@@ -1205,10 +1236,11 @@ function PhraseCategoryGroup({
   phrases: Phrase[];
 }) {
   return (
-    <div className="rounded-xl border border-white/60 bg-[var(--color-app)]/45 p-3 shadow-sm">
+    <div className="border-b border-[var(--color-border)]/25 last:border-b-0">
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={isExpanded}
+        className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-3 text-left transition hover:bg-white/35"
         onClick={onToggle}
       >
         <span>
@@ -1216,7 +1248,7 @@ function PhraseCategoryGroup({
             {category}
           </span>
           <span className="mt-1 block text-sm text-[var(--color-muted)]">
-            {phrases.length} phrases
+            {formatPhraseCount(phrases.length, "phrase")}
           </span>
         </span>
         <ChevronRight
@@ -1228,12 +1260,12 @@ function PhraseCategoryGroup({
       </button>
 
       {isExpanded && (
-        <div className="mt-3 space-y-2">
+        <div className="space-y-2 pb-3">
           {phrases.map((phrase) => (
             <button
               key={`${category}-${phrase.english}-${phrase.script}`}
               type="button"
-              className="w-full rounded-xl border border-white/60 bg-[var(--color-app)]/70 p-4 text-left shadow-sm"
+              className="w-full rounded-lg border border-[var(--color-border)]/35 bg-[var(--color-app)]/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--color-app)]"
               onClick={() => onSelectPhrase(phrase)}
             >
               <span className="block text-sm font-semibold text-[var(--color-muted)]">
@@ -1251,6 +1283,29 @@ function PhraseCategoryGroup({
       )}
     </div>
   );
+}
+
+function getFirstPhraseCategoryKey(
+  groups: PhraseLanguageGroup[],
+  language: string,
+): string | null {
+  const category = groups.find((group) => group.language === language)?.categories
+    .keys()
+    .next().value;
+
+  return category ? getPhraseCategoryKey(language, category) : null;
+}
+
+function getPhraseCategoryKey(language: string, category: string): string {
+  return `${language}::${category}`;
+}
+
+function formatPhraseCount(count: number, noun: string): string {
+  if (noun === "category") {
+    return `${count} ${count === 1 ? "category" : "categories"}`;
+  }
+
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function CompactActivityRow({
