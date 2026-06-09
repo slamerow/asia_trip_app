@@ -1,6 +1,7 @@
 "use client";
 
 import type { Activity, Category, Leg, TripData } from "@/lib/trip-data";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
   ChevronRight,
@@ -92,9 +93,11 @@ export function TripApp({ data }: { data: TripData }) {
                   type="button"
                   className={`flex flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition ${
                     isActive
-                      ? "bg-[var(--color-green)] text-white shadow-lg shadow-emerald-950/25"
-                      : "text-[var(--color-muted)] hover:bg-white"
-                  } ${isToday ? "h-16 -translate-y-2" : "h-14"}`}
+                      ? isToday
+                        ? "bg-[var(--color-brass)] text-white shadow-xl shadow-amber-950/30"
+                        : "bg-[var(--color-green)] text-white shadow-lg shadow-emerald-950/25"
+                      : "text-[var(--color-muted)] hover:bg-white/70"
+                  } ${isToday ? "h-[68px] -translate-y-3 border border-white/40" : "h-14"}`}
                   onClick={() => setActiveTab(tab.id)}
                 >
                   <Icon size={isToday ? 23 : 20} strokeWidth={2.2} />
@@ -104,14 +107,16 @@ export function TripApp({ data }: { data: TripData }) {
             })}
           </div>
         </nav>
-        {selectedActivity && (
-          <ActivityDetail
-            activity={selectedActivity}
-            category={categoryById.get(selectedActivity.category)}
-            leg={data.legs.find((leg) => leg.leg_id === selectedActivity.leg_id)}
-            onClose={() => setSelectedActivity(null)}
-          />
-        )}
+        <AnimatePresence>
+          {selectedActivity && (
+            <ActivityDetail
+              activity={selectedActivity}
+              category={categoryById.get(selectedActivity.category)}
+              leg={data.legs.find((leg) => leg.leg_id === selectedActivity.leg_id)}
+              onClose={() => setSelectedActivity(null)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </main>
   );
@@ -145,7 +150,7 @@ function TodayPanel({
         </div>
       </div>
 
-      <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-4 pt-1">
+      <div className="-mx-5 grid auto-cols-[85%] grid-flow-col gap-4 overflow-x-auto snap-x snap-mandatory scroll-px-[7.5%] px-[7.5%] pb-4 pt-1">
         {activities.length > 0 ? (
           activities.map((activity) => (
             <ActivityCard
@@ -175,7 +180,7 @@ function ActivityCard({
   return (
     <button
       type="button"
-      className="flex h-[235px] min-w-[85%] flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+      className="flex h-[235px] snap-center flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
       onClick={onSelect}
     >
       {activity.start_time ? (
@@ -200,7 +205,7 @@ function ActivityCard({
 
 function RestDayCard({ date }: { date: string }) {
   return (
-    <article className="flex h-[220px] min-w-[85%] flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
+    <article className="flex h-[220px] snap-center flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
       <p className="text-sm font-medium text-[var(--color-muted)]">
         {formatLongDate(date)}
       </p>
@@ -373,8 +378,20 @@ function ActivityDetail({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-30 bg-stone-950/35 backdrop-blur-sm">
-      <div className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl">
+    <motion.div
+      className="fixed inset-0 z-30 bg-stone-950/35 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.div
+        className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl"
+        initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
+        animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
+        exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
+        transition={{ damping: 28, stiffness: 260, type: "spring" }}
+      >
         <div className="flex justify-end">
           <button
             type="button"
@@ -387,7 +404,7 @@ function ActivityDetail({
         </div>
 
         <div className="mt-6">
-          <p className="inline-flex items-center rounded-full bg-[var(--color-green)] px-3 py-1 text-sm font-semibold text-white">
+          <p className="inline-flex items-center rounded-full bg-[var(--color-green)] px-3 py-1 text-sm font-semibold text-white shadow-sm">
             <span className="mr-2">{category?.emoji ?? "•"}</span>
             {category?.description ?? activity.category}
           </p>
@@ -406,7 +423,7 @@ function ActivityDetail({
             </p>
           )}
           {(activity.location_name || activity.address || leg) && (
-            <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
               <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
                 <MapPin size={16} />
                 Location
@@ -422,8 +439,8 @@ function ActivityDetail({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

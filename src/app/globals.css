@@ -1,22 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #d9d0bd;
+  --background: #cfc3aa;
   --foreground: #1d211c;
-  --color-page: #cfd9cc;
-  --color-app: #fff7e8;
-  --color-surface: #f2e2c6;
-  --color-surface-rich: #e4c99c;
-  --color-border: #c9ad78;
-  --color-ink: #1d211c;
-  --color-muted: #715f45;
-  --color-green: #21432f;
-  --color-green-deep: #13261b;
-  --color-gold: #a87524;
-  --color-sky: #d3e4dd;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-body: "Avenir Next", Avenir, "Trebuchet MS", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", "SF Mono", Consolas, monospace;
+  --color-page: #bfccb8;
+  --color-app: #fff4df;
+  --color-surface: #f0ddbc;
+  --color-surface-rich: #dcbf87;
+  --color-border: #b99555;
+  --color-ink: #202217;
+  --color-muted: #715b39;
+  --color-green: #1f3f2d;
+  --color-green-deep: #102318;
+  --color-leather: #5a3620;
+  --color-brass: #b17a25;
+  --color-brass-deep: #8a5a16;
+  --color-sky: #d2e2d5;
   --color-blue: #285f65;
-  --shadow-card: 0 18px 34px rgb(57 39 19 / 0.2), 0 2px 0 rgb(255 255 255 / 0.68) inset;
-  --shadow-lift: 0 24px 48px rgb(35 25 14 / 0.28), 0 2px 0 rgb(255 255 255 / 0.68) inset;
+  --shadow-card: 0 18px 36px rgb(54 35 15 / 0.24), 0 2px 0 rgb(255 255 255 / 0.62) inset;
+  --shadow-lift: 0 26px 52px rgb(35 23 10 / 0.32), 0 2px 0 rgb(255 255 255 / 0.65) inset;
 }
 
 @theme inline {
@@ -35,6 +40,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body), Arial, Helvetica, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
 }
 
 button {
