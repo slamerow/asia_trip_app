@@ -57,6 +57,7 @@ export function TripApp({
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isStayOpen, setIsStayOpen] = useState(false);
 
   const categoryById = useMemo(
     () => new Map(data.categories.map((category) => [category.category_id, category])),
@@ -80,6 +81,9 @@ export function TripApp({
               </h1>
             </div>
             <div className="flex shrink-0 gap-2">
+              <IconButton label="Stay" onClick={() => setIsStayOpen(true)}>
+                <MapPin size={19} />
+              </IconButton>
               <IconButton label="Search" onClick={() => setIsSearchOpen(true)}>
                 <Search size={19} />
               </IconButton>
@@ -99,7 +103,6 @@ export function TripApp({
               activities={activeDay.activities}
               categoryById={categoryById}
               date={activeDay.date}
-              leg={activeDay.leg}
               onSelectActivity={setSelectedActivity}
               weather={weather}
             />
@@ -209,6 +212,9 @@ export function TripApp({
           {isMapOpen && (
             <MapDetail legs={data.legs} onClose={() => setIsMapOpen(false)} />
           )}
+          {isStayOpen && (
+            <StayDetail leg={activeDay.leg} onClose={() => setIsStayOpen(false)} />
+          )}
           {isPhrasebookOpen && (
             <PhrasebookDetail
               activeLanguage={activeDay.leg.language}
@@ -226,21 +232,17 @@ function TodayPanel({
   activities,
   categoryById,
   date,
-  leg,
   onSelectActivity,
   weather,
 }: {
   activities: Activity[];
   categoryById: Map<string, Category>;
   date: string;
-  leg: Leg;
   onSelectActivity: (activity: Activity) => void;
   weather: WeatherForecast;
 }) {
-  const [isStayOpen, setIsStayOpen] = useState(false);
-
   return (
-    <div className="flex min-h-[calc(100dvh-14rem)] flex-col">
+    <div className="space-y-5">
       <WeatherCard weather={weather} />
 
       <div className="-mx-5 mt-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-2 pt-1">
@@ -259,16 +261,6 @@ function TodayPanel({
         )}
         <div className="shrink-0 basis-[11%]" aria-hidden="true" />
       </div>
-
-      <div className="mt-auto pt-8">
-        <StayCard leg={leg} onSelect={() => setIsStayOpen(true)} />
-      </div>
-
-      <AnimatePresence>
-        {isStayOpen && (
-          <StayDetail leg={leg} onClose={() => setIsStayOpen(false)} />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -351,26 +343,6 @@ function WeatherCard({ weather }: { weather: WeatherForecast }) {
         </div>
       )}
     </div>
-  );
-}
-
-function StayCard({ leg, onSelect }: { leg: Leg; onSelect: () => void }) {
-  return (
-    <button
-      type="button"
-      className="flex h-14 w-full items-center justify-between gap-3 rounded-xl border border-white/60 bg-[var(--color-surface)] px-3 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5"
-      onClick={onSelect}
-    >
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-app)] text-[var(--color-leather)] shadow-sm">
-          <MapPin size={17} />
-        </span>
-        <span className="block min-w-0 truncate text-base font-semibold">
-          {leg.stay_name}
-        </span>
-      </span>
-      <ChevronRight className="shrink-0 text-[var(--color-muted)]" size={18} />
-    </button>
   );
 }
 
