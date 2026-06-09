@@ -45,6 +45,7 @@ export function TripApp({ data }: { data: TripData }) {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [selectedLeg, setSelectedLeg] = useState<Leg | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
 
@@ -104,7 +105,9 @@ export function TripApp({ data }: { data: TripData }) {
           )}
           {activeTab === "calendar" && (
             <CalendarPanel
+              activities={data.activities}
               legs={data.legs}
+              onSelectDate={setSelectedDate}
               onSelectLeg={setSelectedLeg}
             />
           )}
@@ -164,6 +167,18 @@ export function TripApp({ data }: { data: TripData }) {
               onClose={() => setSelectedCategory(null)}
               onSelectActivity={(activity) => {
                 setSelectedCategory(null);
+                setSelectedActivity(activity);
+              }}
+            />
+          )}
+          {selectedDate && (
+            <DateDetail
+              activities={data.activities.filter((activity) => activity.date === selectedDate)}
+              date={selectedDate}
+              leg={getLegForDate(data.legs, selectedDate)}
+              onClose={() => setSelectedDate(null)}
+              onSelectActivity={(activity) => {
+                setSelectedDate(null);
                 setSelectedActivity(activity);
               }}
             />
@@ -359,10 +374,14 @@ function CategoriesPanel({
 }
 
 function CalendarPanel({
+  activities,
   legs,
+  onSelectDate,
   onSelectLeg,
 }: {
+  activities: Activity[];
   legs: Leg[];
+  onSelectDate: (date: string) => void;
   onSelectLeg: (leg: Leg) => void;
 }) {
   const tripDates = useMemo(() => {
@@ -384,6 +403,15 @@ function CalendarPanel({
     () => buildCalendarRows(visibleDates, legs),
     [visibleDates, legs],
   );
+  const activityCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    activities.forEach((activity) => {
+      counts.set(activity.date, (counts.get(activity.date) ?? 0) + 1);
+    });
+
+    return counts;
+  }, [activities]);
 
   return (
     <div>
@@ -411,6 +439,32 @@ function CalendarPanel({
             <ChevronRight size={18} />
           </button>
         </div>
+        <label className="mt-4 block">
+          <span className="sr-only">Jump to day</span>
+          <select
+            className="h-11 w-full rounded-lg border border-white/60 bg-[var(--color-app)] px-3 text-sm font-semibold text-[var(--color-ink)] shadow-sm outline-none"
+            defaultValue=""
+            onChange={(event) => {
+              if (!event.target.value) return;
+
+              onSelectDate(event.target.value);
+              event.target.value = "";
+            }}
+          >
+            <option value="">Jump to day</option>
+            {tripDates.map((date) => {
+              const leg = getLegForDate(legs, date);
+              const count = activityCounts.get(date) ?? 0;
+
+              return (
+                <option key={date} value={date}>
+                  {formatSelectDate(date)} · {leg?.city ?? "Trip"} · {count}{" "}
+                  {count === 1 ? "plan" : "plans"}
+                </option>
+              );
+            })}
+          </select>
+        </label>
         <div className="mt-3 space-y-1.5">
           {calendarRows.map((row, rowIndex) => (
             <div key={rowIndex} className="grid grid-cols-7 gap-1">
@@ -724,6 +778,55 @@ function CategoryDetail({
             </button>
           );
         })}
+      </div>
+    </Overlay>
+  );
+}
+
+function DateDetail({
+  activities,
+  date,
+  leg,
+  onClose,
+  onSelectActivity,
+}: {
+  activities: Activity[];
+  date: string;
+  leg: Leg | undefined;
+  onClose: () => void;
+  onSelectActivity: (activity: Activity) => void;
+}) {
+  return (
+    <Overlay onClose={onClose} closeLabel="Close date">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">
+        {formatLongDate(date)}
+      </p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">
+        {leg?.city ?? "Trip Day"}
+      </h2>
+
+      <div className="mt-6 space-y-3">
+        {activities.length > 0 ? (
+          activities.map((activity) => (
+            <button
+              key={activity.activity_id}
+              type="button"
+              className="w-full rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
+              onClick={() => onSelectActivity(activity)}
+            >
+              <span className="block text-sm font-semibold text-[var(--color-muted)]">
+                {activity.start_time ? formatTimeRange(activity) : "Anytime"}
+              </span>
+              <span className="mt-1 block text-lg font-semibold leading-snug">
+                {activity.title}
+              </span>
+            </button>
+          ))
+        ) : (
+          <p className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-sm font-semibold text-[var(--color-muted)] shadow-[var(--shadow-card)]">
+            No plans on the sheet for this day.
+          </p>
+        )}
       </div>
     </Overlay>
   );
@@ -1090,6 +1193,15 @@ function formatLongDate(date: string): string {
 
 function formatShortDate(date: string): string {
   return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
+function formatSelectDate(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     timeZone: "UTC",
