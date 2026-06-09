@@ -81,7 +81,7 @@ export function TripApp({ data }: { data: TripData }) {
         </section>
 
         <nav className="fixed bottom-0 left-1/2 z-20 w-full max-w-[440px] -translate-x-1/2 border-t border-[var(--color-border)] bg-[var(--color-app)]/96 px-3 pb-3 pt-2 backdrop-blur">
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-4 items-end gap-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -94,14 +94,26 @@ export function TripApp({ data }: { data: TripData }) {
                   className={`flex flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition ${
                     isActive
                       ? isToday
-                        ? "bg-[var(--color-brass)] text-white shadow-xl shadow-amber-950/30"
+                        ? "bg-[var(--color-brass)] text-white shadow-2xl shadow-amber-950/40"
                         : "bg-[var(--color-green)] text-white shadow-lg shadow-emerald-950/25"
                       : "text-[var(--color-muted)] hover:bg-white/70"
-                  } ${isToday ? "h-[68px] -translate-y-3 border border-white/40" : "h-14"}`}
+                  } ${
+                    isToday
+                      ? "h-[78px] -translate-y-5 rounded-2xl border border-white/50 ring-2 ring-[var(--color-app)]"
+                      : "h-14"
+                  }`}
                   onClick={() => setActiveTab(tab.id)}
                 >
-                  <Icon size={isToday ? 23 : 20} strokeWidth={2.2} />
-                  <span>{tab.label}</span>
+                  <span
+                    className={
+                      isToday
+                        ? "flex h-9 w-9 items-center justify-center rounded-full bg-white/16"
+                        : ""
+                    }
+                  >
+                    <Icon size={isToday ? 25 : 20} strokeWidth={2.2} />
+                  </span>
+                  <span className={isToday ? "text-[13px]" : ""}>{tab.label}</span>
                 </button>
               );
             })}
@@ -150,7 +162,8 @@ function TodayPanel({
         </div>
       </div>
 
-      <div className="-mx-5 grid auto-cols-[85%] grid-flow-col gap-4 overflow-x-auto snap-x snap-mandatory scroll-px-[7.5%] px-[7.5%] pb-4 pt-1">
+      <div className="-mx-5 flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-4 pt-1">
+        <div className="shrink-0 basis-[11%]" aria-hidden="true" />
         {activities.length > 0 ? (
           activities.map((activity) => (
             <ActivityCard
@@ -163,6 +176,7 @@ function TodayPanel({
         ) : (
           <RestDayCard date={date} />
         )}
+        <div className="shrink-0 basis-[11%]" aria-hidden="true" />
       </div>
     </div>
   );
@@ -180,7 +194,7 @@ function ActivityCard({
   return (
     <button
       type="button"
-      className="flex h-[235px] snap-center flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+      className="mx-2 flex h-[235px] shrink-0 basis-[78%] snap-center flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
       onClick={onSelect}
     >
       {activity.start_time ? (
@@ -205,7 +219,7 @@ function ActivityCard({
 
 function RestDayCard({ date }: { date: string }) {
   return (
-    <article className="flex h-[220px] snap-center flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
+    <article className="mx-2 flex h-[220px] shrink-0 basis-[78%] snap-center flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
       <p className="text-sm font-medium text-[var(--color-muted)]">
         {formatLongDate(date)}
       </p>
