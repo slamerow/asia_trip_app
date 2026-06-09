@@ -445,36 +445,37 @@ function LegsPanel({
 
   return (
     <div className="space-y-3">
-      {legs.map((leg) => {
-        const status = getLegStatus(leg, currentDate);
+      {legs.map((leg, index) => {
+        const status = getLegQueueStatus(legs, index, currentDate);
 
         return (
           <button
             key={leg.leg_id}
             type="button"
-            className={`flex w-full items-center justify-between rounded-xl border p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 ${
+            className={`relative flex w-full items-center justify-between overflow-hidden rounded-xl border p-4 pl-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 ${
               status === "current"
                 ? "border-[var(--color-green)] bg-[var(--color-sky)]"
-                : status === "upcoming"
+                : status === "next"
                   ? "border-[var(--color-border)] bg-[var(--color-surface)]"
                   : "border-white/60 bg-[var(--color-surface)]"
             }`}
             onClick={() => onSelectLeg(leg)}
           >
+            {status !== "quiet" && (
+              <span
+                className={`absolute bottom-3 left-0 top-3 w-1 rounded-r-full ${
+                  status === "current"
+                    ? "bg-[var(--color-green)]"
+                    : status === "next"
+                      ? "bg-[var(--color-brass)]"
+                      : "bg-[var(--color-muted)]/45"
+                }`}
+                aria-hidden="true"
+              />
+            )}
             <span className="min-w-0">
               <span className="flex items-center gap-2">
                 <span className="truncate text-lg font-semibold">{leg.city}</span>
-                {status !== "past" && (
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      status === "current"
-                        ? "bg-[var(--color-green)] text-white"
-                        : "bg-[var(--color-app)] text-[var(--color-leather)]"
-                    }`}
-                  >
-                    {status === "current" ? "Current" : "Upcoming"}
-                  </span>
-                )}
               </span>
               <span className="mt-1 block text-sm text-[var(--color-muted)]">
                 {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} ·{" "}
@@ -902,30 +903,43 @@ function LegDetail({
       </p>
       <p className="mt-5 text-base leading-7">{leg.why}</p>
 
-      <button
-        type="button"
-        className="mt-6 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
-        onClick={() => setIsStayOpen((isOpen) => !isOpen)}
-      >
-        <span className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
-            <MapPin size={16} />
-            Stay
+      <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
+        <button
+          type="button"
+          className="w-full text-left"
+          onClick={() => setIsStayOpen((isOpen) => !isOpen)}
+        >
+          <span className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
+              <MapPin size={16} />
+              Stay
+            </span>
+            <ChevronRight
+              className={`shrink-0 text-[var(--color-muted)] transition ${
+                isStayOpen ? "rotate-90" : ""
+              }`}
+              size={18}
+            />
           </span>
-          <ChevronRight
-            className={`shrink-0 text-[var(--color-muted)] transition ${
-              isStayOpen ? "rotate-90" : ""
-            }`}
-            size={18}
-          />
-        </span>
-        <span className="mt-2 block font-semibold">{leg.stay_name}</span>
+          <span className="mt-2 block font-semibold">{leg.stay_name}</span>
+        </button>
         {isStayOpen && (
-          <span className="mt-2 block text-sm leading-6 text-[var(--color-muted)]">
-            {leg.stay_address}
-          </span>
+          <div className="mt-4 border-t border-[var(--color-border)]/35 pt-4">
+            <p className="whitespace-pre-line text-base font-semibold leading-7">
+              {leg.stay_address}
+            </p>
+            <a
+              className="mt-4 flex h-11 items-center justify-center gap-2 rounded-lg bg-[var(--color-green)] px-4 text-sm font-bold text-white shadow-lg shadow-emerald-950/20"
+              href={getStayGoogleMapsUrl(leg)}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Open in Google Maps
+              <ExternalLink size={15} />
+            </a>
+          </div>
         )}
-      </button>
+      </div>
 
       <div className="mt-6 space-y-5">
         {activityGroups.map((group) => (
@@ -1532,13 +1546,22 @@ function getActiveDay(legs: Leg[], activities: Activity[]) {
   };
 }
 
-function getLegStatus(
-  leg: Leg,
+function getLegQueueStatus(
+  legs: Leg[],
+  index: number,
   currentDate: string,
-): "current" | "past" | "upcoming" {
+): "current" | "following" | "next" | "quiet" {
+  const leg = legs[index];
+  if (!leg) return "quiet";
+
   if (currentDate >= leg.arrive && currentDate < leg.leave) return "current";
-  if (currentDate < leg.arrive) return "upcoming";
-  return "past";
+
+  const nextIndex = legs.findIndex((item) => currentDate < item.arrive);
+  if (nextIndex < 0) return "quiet";
+  if (index === nextIndex) return "next";
+  if (index === nextIndex + 1) return "following";
+
+  return "quiet";
 }
 
 function formatTimeRange(activity: Activity): string {
