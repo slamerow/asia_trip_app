@@ -12,8 +12,6 @@ export type Leg = {
   why: string;
   arrival_flight: string | null;
   departure_flight: string | null;
-  cost_estimate: number | null;
-  actual_lodging: number | null;
   notes: string | null;
   timezone: string;
   language: string;
@@ -121,8 +119,6 @@ function normalizeLeg(row: CsvRow): Leg {
     why: required(row, "why"),
     arrival_flight: nullable(row.arrival_flight),
     departure_flight: nullable(row.departure_flight),
-    cost_estimate: nullableNumber(row.cost_estimate),
-    actual_lodging: nullableNumber(row.actual_lodging),
     notes: nullable(row.notes),
     timezone: required(row, "timezone"),
     language: required(row, "language"),
