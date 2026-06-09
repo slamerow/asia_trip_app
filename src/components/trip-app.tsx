@@ -630,17 +630,9 @@ function ActivityDetail({
       transition={{ duration: 0.18 }}
     >
       <motion.div
-        className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl"
+        className="mx-auto flex max-h-dvh min-h-dvh w-full max-w-[440px] flex-col overflow-y-auto overscroll-contain bg-[var(--color-app)] px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] shadow-2xl"
         initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
         animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
-        drag="y"
-        dragConstraints={{ bottom: 0, top: 0 }}
-        dragElastic={{ bottom: 0.45, top: 0.02 }}
-        onDragEnd={(_, info) => {
-          if (info.offset.y > 68 || info.velocity.y > 480) {
-            onClose();
-          }
-        }}
         exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
         transition={{ damping: 28, stiffness: 260, type: "spring" }}
       >
@@ -1378,7 +1370,7 @@ function Overlay({
       transition={{ duration: 0.18 }}
     >
       <motion.div
-        className="mx-auto flex max-h-screen min-h-screen w-full max-w-[440px] flex-col overflow-y-auto bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl"
+        className="mx-auto flex max-h-dvh min-h-dvh w-full max-w-[440px] flex-col overflow-y-auto overscroll-contain bg-[var(--color-app)] px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] shadow-2xl"
         initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
         animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
         onTouchEnd={(event) => {
