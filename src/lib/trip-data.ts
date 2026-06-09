@@ -17,6 +17,8 @@ export type Leg = {
   notes: string | null;
   timezone: string;
   language: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type Activity = {
@@ -124,6 +126,8 @@ function normalizeLeg(row: CsvRow): Leg {
     notes: nullable(row.notes),
     timezone: required(row, "timezone"),
     language: required(row, "language"),
+    latitude: nullableNumber(row.latitude ?? row.lat),
+    longitude: nullableNumber(row.longitude ?? row.lng ?? row.lon),
   };
 }
 

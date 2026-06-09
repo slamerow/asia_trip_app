@@ -9,6 +9,7 @@ import {
   Clock,
   CloudSun,
   ExternalLink,
+  Map as MapIcon,
   MapPin,
   Languages,
   MapPinned,
@@ -44,6 +45,7 @@ export function TripApp({ data }: { data: TripData }) {
   const [selectedLeg, setSelectedLeg] = useState<Leg | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isMapOpen, setIsMapOpen] = useState(false);
   const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
 
   const categoryById = useMemo(
@@ -70,6 +72,9 @@ export function TripApp({ data }: { data: TripData }) {
             <div className="flex shrink-0 gap-2">
               <IconButton label="Search">
                 <Search size={19} />
+              </IconButton>
+              <IconButton label="Map" onClick={() => setIsMapOpen(true)}>
+                <MapIcon size={19} />
               </IconButton>
               <IconButton label="Phrases" onClick={() => setIsPhrasebookOpen(true)}>
                 <Languages size={19} />
@@ -99,7 +104,6 @@ export function TripApp({ data }: { data: TripData }) {
           )}
           {activeTab === "calendar" && (
             <CalendarPanel
-              activities={data.activities}
               legs={data.legs}
               onSelectDate={setSelectedDate}
             />
@@ -144,6 +148,10 @@ export function TripApp({ data }: { data: TripData }) {
               activities={data.activities.filter((activity) => activity.leg_id === selectedLeg.leg_id)}
               leg={selectedLeg}
               onClose={() => setSelectedLeg(null)}
+              onSelectActivity={(activity) => {
+                setSelectedLeg(null);
+                setSelectedActivity(activity);
+              }}
             />
           )}
           {selectedCategory && (
@@ -172,8 +180,12 @@ export function TripApp({ data }: { data: TripData }) {
               }}
             />
           )}
+          {isMapOpen && (
+            <MapDetail legs={data.legs} onClose={() => setIsMapOpen(false)} />
+          )}
           {isPhrasebookOpen && (
             <PhrasebookDetail
+              activeLanguage={activeDay.leg.language}
               phrases={data.phrases}
               onClose={() => setIsPhrasebookOpen(false)}
             />
@@ -244,11 +256,11 @@ function ActivityCard({
   return (
     <button
       type="button"
-      className="mx-2 flex h-[235px] shrink-0 basis-[78%] snap-center flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+      className="mx-2 flex h-[235px] shrink-0 basis-[78%] snap-center flex-col items-center justify-center rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-center shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
       onClick={onSelect}
     >
       {activity.start_time ? (
-        <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-muted)]">
+        <div className="flex items-center justify-center gap-2 text-sm font-medium text-[var(--color-muted)]">
           <Clock size={16} />
           <span>{formatTimeRange(activity)}</span>
         </div>
@@ -257,12 +269,12 @@ function ActivityCard({
           Anytime
         </div>
       )}
-      <div>
+      <div className="mt-5">
         <h2 className="line-clamp-4 text-3xl font-semibold leading-tight">
           {activity.title}
         </h2>
       </div>
-      <p className="text-3xl leading-none">{category?.emoji ?? "•"}</p>
+      <p className="mt-6 text-3xl leading-none">{category?.emoji ?? "•"}</p>
     </button>
   );
 }
@@ -304,7 +316,7 @@ function LegsPanel({
             <span className="block truncate text-lg font-semibold">{leg.city}</span>
             <span className="mt-1 block text-sm text-[var(--color-muted)]">
               {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} ·{" "}
-              {leg.country} · {leg.nights} nights
+              {leg.country} · {formatNights(leg.nights)}
             </span>
             <span className="mt-1 block truncate text-sm text-[var(--color-muted)]">
               {leg.stay_name}
@@ -359,11 +371,9 @@ function CategoriesPanel({
 }
 
 function CalendarPanel({
-  activities,
   legs,
   onSelectDate,
 }: {
-  activities: Activity[];
   legs: Leg[];
   onSelectDate: (date: string) => void;
 }) {
@@ -386,18 +396,9 @@ function CalendarPanel({
     () => buildCalendarRows(visibleDates, legs),
     [visibleDates, legs],
   );
-  const activityCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-
-    activities.forEach((activity) => {
-      counts.set(activity.date, (counts.get(activity.date) ?? 0) + 1);
-    });
-
-    return counts;
-  }, [activities]);
 
   return (
-    <div className="space-y-4">
+    <div>
       <div className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
         <div className="flex items-center justify-between gap-3">
           <button
@@ -440,10 +441,9 @@ function CalendarPanel({
                   <span className="text-[10px] font-semibold leading-none text-[var(--color-muted)]">
                     {segment.dateLabel}
                   </span>
-                  {(segment.label || activityCounts.get(segment.value)) && (
-                    <span className="truncate text-[11px] font-bold leading-tight">
-                      {segment.label ||
-                        `${activityCounts.get(segment.value) ?? 0} plans`}
+                  {segment.label && (
+                    <span className="line-clamp-2 break-words text-[10px] font-bold leading-tight sm:text-[11px]">
+                      {segment.label}
                     </span>
                   )}
                 </button>
@@ -452,9 +452,6 @@ function CalendarPanel({
           ))}
         </div>
       </div>
-      <p className="text-sm leading-6 text-[var(--color-muted)]">
-        Split days show a transition from one place to the next.
-      </p>
     </div>
   );
 }
@@ -504,6 +501,14 @@ function ActivityDetail({
         className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl"
         initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
         animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
+        drag="y"
+        dragConstraints={{ bottom: 0, top: 0 }}
+        dragElastic={{ bottom: 0.35, top: 0.02 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 90 || info.velocity.y > 650) {
+            onClose();
+          }
+        }}
         exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
         transition={{ damping: 28, stiffness: 260, type: "spring" }}
       >
@@ -559,19 +564,85 @@ function ActivityDetail({
   );
 }
 
+function MapDetail({ legs, onClose }: { legs: Leg[]; onClose: () => void }) {
+  const mappedLegs = legs.filter(
+    (leg) => leg.latitude !== null && leg.longitude !== null,
+  );
+  const bounds = getMapBounds(mappedLegs);
+
+  return (
+    <Overlay onClose={onClose} closeLabel="Close map">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">Map</p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">Trip Pins</h2>
+
+      <div className="relative mt-6 aspect-[4/5] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[linear-gradient(135deg,rgba(31,63,45,.18),rgba(177,122,37,.18)),var(--color-surface)] shadow-[var(--shadow-card)]">
+        <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(32,34,23,.18)_1px,transparent_1px),linear-gradient(90deg,rgba(32,34,23,.18)_1px,transparent_1px)] [background-size:42px_42px]" />
+        {mappedLegs.length > 0 ? (
+          mappedLegs.map((leg) => {
+            const position = getMapPosition(leg, bounds);
+
+            return (
+              <a
+                key={leg.leg_id}
+                aria-label={`Open ${leg.city} in Google Maps`}
+                className="absolute flex -translate-x-1/2 -translate-y-full flex-col items-center gap-1 text-center"
+                href={getGoogleMapsUrl(leg)}
+                rel="noreferrer"
+                style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                target="_blank"
+              >
+                <MapPin className="fill-[var(--color-green)] text-[var(--color-green)] drop-shadow" size={28} />
+                <span className="max-w-20 rounded-md bg-[var(--color-app)]/90 px-1.5 py-0.5 text-[10px] font-bold leading-tight shadow-sm">
+                  {shortCity(leg.city)}
+                </span>
+              </a>
+            );
+          })
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-sm font-semibold leading-6 text-[var(--color-muted)]">
+            Add latitude and longitude columns to show pins here.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {legs.map((leg) => (
+          <a
+            key={leg.leg_id}
+            className="flex items-center justify-between gap-3 rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
+            href={getGoogleMapsUrl(leg)}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span className="min-w-0">
+              <span className="block font-semibold">{leg.city}</span>
+              <span className="mt-1 block truncate text-sm text-[var(--color-muted)]">
+                {leg.stay_name}
+              </span>
+            </span>
+            <ExternalLink className="shrink-0 text-[var(--color-muted)]" size={17} />
+          </a>
+        ))}
+      </div>
+    </Overlay>
+  );
+}
+
 function LegDetail({
   activities,
   leg,
   onClose,
+  onSelectActivity,
 }: {
   activities: Activity[];
   leg: Leg;
   onClose: () => void;
+  onSelectActivity: (activity: Activity) => void;
 }) {
   return (
     <Overlay onClose={onClose} closeLabel="Close leg">
       <p className="text-sm font-semibold text-[var(--color-muted)]">
-        {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} · {leg.nights} nights
+        {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} · {formatNights(leg.nights)}
       </p>
       <h2 className="mt-2 text-4xl font-semibold leading-tight">{leg.city}</h2>
       <p className="mt-1 text-lg font-semibold text-[var(--color-leather)]">
@@ -592,7 +663,11 @@ function LegDetail({
 
       <div className="mt-6 space-y-3">
         {activities.slice(0, 6).map((activity) => (
-          <CompactActivityRow key={activity.activity_id} activity={activity} />
+          <CompactActivityRow
+            key={activity.activity_id}
+            activity={activity}
+            onSelect={() => onSelectActivity(activity)}
+          />
         ))}
       </div>
     </Overlay>
@@ -697,21 +772,33 @@ function DateDetail({
 }
 
 function PhrasebookDetail({
+  activeLanguage,
   onClose,
   phrases,
 }: {
+  activeLanguage: string;
   onClose: () => void;
   phrases: Phrase[];
 }) {
+  const defaultLanguage = isEnglishLanguage(activeLanguage) ? null : activeLanguage;
+  const [expandedLanguage, setExpandedLanguage] = useState<string | null>(
+    defaultLanguage,
+  );
+  const [selectedPhrase, setSelectedPhrase] = useState<Phrase | null>(null);
   const groupedPhrases = useMemo(() => {
-    const groups = new Map<string, Phrase[]>();
+    const languageGroups = new Map<string, Map<string, Phrase[]>>();
 
     phrases.forEach((phrase) => {
-      const key = `${phrase.language} · ${phrase.category}`;
-      groups.set(key, [...(groups.get(key) ?? []), phrase]);
+      const categoryGroups =
+        languageGroups.get(phrase.language) ?? new Map<string, Phrase[]>();
+      categoryGroups.set(phrase.category, [
+        ...(categoryGroups.get(phrase.category) ?? []),
+        phrase,
+      ]);
+      languageGroups.set(phrase.language, categoryGroups);
     });
 
-    return Array.from(groups.entries());
+    return Array.from(languageGroups.entries());
   }, [phrases]);
 
   return (
@@ -719,44 +806,140 @@ function PhrasebookDetail({
       <p className="text-sm font-semibold text-[var(--color-muted)]">Phrasebook</p>
       <h2 className="mt-2 text-4xl font-semibold leading-tight">Useful Words</h2>
 
-      <div className="mt-6 space-y-5">
-        {groupedPhrases.map(([group, items]) => (
-          <section key={group}>
-            <h3 className="text-sm font-bold uppercase text-[var(--color-muted)]">
-              {group}
-            </h3>
-            <div className="mt-2 space-y-2">
-              {items.map((phrase) => (
-                <div
-                  key={`${group}-${phrase.english}-${phrase.script}`}
-                  className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]"
-                >
-                  <p className="text-sm font-semibold text-[var(--color-muted)]">
-                    {phrase.english}
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold">{phrase.script}</p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--color-leather)]">
-                    {phrase.pronunciation}
-                  </p>
+      <div className="mt-6 space-y-3">
+        {groupedPhrases.map(([language, categoryGroups]) => {
+          const isExpanded = expandedLanguage === language;
+          const phraseCount = Array.from(categoryGroups.values()).reduce(
+            (total, items) => total + items.length,
+            0,
+          );
+
+          return (
+            <section
+              key={language}
+              className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]"
+            >
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 text-left"
+                onClick={() => setExpandedLanguage(isExpanded ? null : language)}
+              >
+                <span>
+                  <span className="block text-lg font-semibold">{language}</span>
+                  <span className="mt-1 block text-sm text-[var(--color-muted)]">
+                    {phraseCount} phrases
+                  </span>
+                </span>
+                <ChevronRight
+                  className={`shrink-0 text-[var(--color-muted)] transition ${
+                    isExpanded ? "rotate-90" : ""
+                  }`}
+                  size={20}
+                />
+              </button>
+
+              {isExpanded && (
+                <div className="mt-4 space-y-5">
+                  {Array.from(categoryGroups.entries()).map(([category, items]) => (
+                    <div key={`${language}-${category}`}>
+                      <h3 className="text-sm font-bold uppercase text-[var(--color-muted)]">
+                        {category}
+                      </h3>
+                      <div className="mt-2 space-y-2">
+                        {items.map((phrase) => (
+                          <button
+                            key={`${language}-${category}-${phrase.english}-${phrase.script}`}
+                            type="button"
+                            className="w-full rounded-xl border border-white/60 bg-[var(--color-app)]/55 p-4 text-left shadow-sm"
+                            onClick={() => setSelectedPhrase(phrase)}
+                          >
+                            <span className="block text-sm font-semibold text-[var(--color-muted)]">
+                              {phrase.english}
+                            </span>
+                            <span className="mt-1 block text-xl font-semibold">
+                              {phrase.script}
+                            </span>
+                            <span className="mt-1 block text-sm font-semibold text-[var(--color-leather)]">
+                              {phrase.pronunciation}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        ))}
+              )}
+            </section>
+          );
+        })}
       </div>
+
+      <AnimatePresence>
+        {selectedPhrase && (
+          <PhraseDisplay
+            phrase={selectedPhrase}
+            onClose={() => setSelectedPhrase(null)}
+          />
+        )}
+      </AnimatePresence>
     </Overlay>
   );
 }
 
-function CompactActivityRow({ activity }: { activity: Activity }) {
+function PhraseDisplay({
+  onClose,
+  phrase,
+}: {
+  onClose: () => void;
+  phrase: Phrase;
+}) {
   return (
-    <div className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
+    <motion.div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-stone-950/45 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.16 }}
+      onClick={onClose}
+    >
+      <motion.button
+        type="button"
+        className="flex min-h-[58vh] w-full max-w-[720px] flex-col items-center justify-center rounded-xl bg-[var(--color-app)] p-7 text-center shadow-2xl sm:aspect-[16/9] sm:min-h-0"
+        initial={{ opacity: 0.92, scale: 0.92, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 16 }}
+        transition={{ damping: 24, stiffness: 250, type: "spring" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="text-base font-semibold text-[var(--color-muted)]">
+          {phrase.english}
+        </span>
+        <span className="mt-8 max-w-full text-balance text-5xl font-semibold leading-tight sm:text-7xl">
+          {phrase.script}
+        </span>
+        <span className="mt-8 text-xl font-semibold text-[var(--color-leather)]">
+          {phrase.pronunciation}
+        </span>
+      </motion.button>
+    </motion.div>
+  );
+}
+
+function CompactActivityRow({
+  activity,
+  onSelect,
+}: {
+  activity: Activity;
+  onSelect?: () => void;
+}) {
+  const content = (
+    <>
       <p className="text-sm font-semibold text-[var(--color-muted)]">
         {formatShortDate(activity.date)}
         {activity.start_time ? ` · ${formatTimeRange(activity)}` : ""}
       </p>
       <p className="mt-1 text-lg font-semibold leading-snug">{activity.title}</p>
-      {activity.url && (
+      {activity.url && !onSelect && (
         <a
           className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[var(--color-blue)]"
           href={activity.url}
@@ -767,6 +950,24 @@ function CompactActivityRow({ activity }: { activity: Activity }) {
           <ExternalLink size={14} />
         </a>
       )}
+    </>
+  );
+
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        className="w-full rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
+        onClick={onSelect}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
+      {content}
     </div>
   );
 }
@@ -792,6 +993,14 @@ function Overlay({
         className="mx-auto flex max-h-screen min-h-screen w-full max-w-[440px] flex-col overflow-y-auto bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl"
         initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
         animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
+        drag="y"
+        dragConstraints={{ bottom: 0, top: 0 }}
+        dragElastic={{ bottom: 0.35, top: 0.02 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 90 || info.velocity.y > 650) {
+            onClose();
+          }
+        }}
         exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
         transition={{ damping: 28, stiffness: 260, type: "spring" }}
       >
@@ -869,6 +1078,10 @@ function formatShortDate(date: string): string {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
+function formatNights(nights: number): string {
+  return `${nights} ${nights === 1 ? "night" : "nights"}`;
+}
+
 function formatMonth(month: string): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -878,7 +1091,6 @@ function formatMonth(month: string): string {
 }
 
 function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
-  const labeledLegIds = new Set<string>();
   const rows: CalendarSegment[][] = [];
 
   for (let rowStart = 0; rowStart < dates.length; rowStart += 7) {
@@ -923,12 +1135,7 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
       }
 
       const segmentDates = weekDates.slice(index, index + span);
-      const label =
-        leg && !labeledLegIds.has(leg.leg_id) ? shortCity(leg.city) : "";
-
-      if (leg && label) {
-        labeledLegIds.add(leg.leg_id);
-      }
+      const label = leg ? shortCity(leg.city) : "";
 
       row.push({
         background: getLegColor(getLegIndex(legs, leg)),
@@ -1019,4 +1226,61 @@ function getDateRange(start: string, endExclusive: string): string[] {
   }
 
   return dates;
+}
+
+function isEnglishLanguage(language: string): boolean {
+  return ["english", "en"].includes(language.trim().toLowerCase());
+}
+
+type MapBounds = {
+  maxLat: number;
+  maxLng: number;
+  minLat: number;
+  minLng: number;
+};
+
+function getMapBounds(legs: Leg[]): MapBounds {
+  const latitudes = legs.flatMap((leg) =>
+    leg.latitude === null ? [] : [leg.latitude],
+  );
+  const longitudes = legs.flatMap((leg) =>
+    leg.longitude === null ? [] : [leg.longitude],
+  );
+
+  if (latitudes.length === 0 || longitudes.length === 0) {
+    return { maxLat: 1, maxLng: 1, minLat: 0, minLng: 0 };
+  }
+
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLng = Math.min(...longitudes);
+  const maxLng = Math.max(...longitudes);
+
+  return {
+    maxLat: maxLat === minLat ? maxLat + 0.05 : maxLat,
+    maxLng: maxLng === minLng ? maxLng + 0.05 : maxLng,
+    minLat: maxLat === minLat ? minLat - 0.05 : minLat,
+    minLng: maxLng === minLng ? minLng - 0.05 : minLng,
+  };
+}
+
+function getMapPosition(leg: Leg, bounds: MapBounds): { x: number; y: number } {
+  if (leg.latitude === null || leg.longitude === null) {
+    return { x: 50, y: 50 };
+  }
+
+  const x = ((leg.longitude - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 80 + 10;
+  const y = ((bounds.maxLat - leg.latitude) / (bounds.maxLat - bounds.minLat)) * 80 + 10;
+
+  return { x, y };
+}
+
+function getGoogleMapsUrl(leg: Leg): string {
+  if (leg.latitude !== null && leg.longitude !== null) {
+    return `https://www.google.com/maps/search/?api=1&query=${leg.latitude},${leg.longitude}`;
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    `${leg.stay_address || leg.city}, ${leg.country}`,
+  )}`;
 }
