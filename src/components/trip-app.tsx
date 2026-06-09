@@ -6,11 +6,13 @@ import {
   ChevronRight,
   Clock,
   CloudSun,
+  MapPin,
   Languages,
   MapPinned,
   Search,
   Sparkles,
   Tags,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -25,6 +27,7 @@ const tabs: Array<{ id: TabId; label: string; icon: typeof Sparkles }> = [
 
 export function TripApp({ data }: { data: TripData }) {
   const [activeTab, setActiveTab] = useState<TabId>("today");
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
 
   const categoryById = useMemo(
     () => new Map(data.categories.map((category) => [category.category_id, category])),
@@ -36,7 +39,7 @@ export function TripApp({ data }: { data: TripData }) {
 
   return (
     <main className="min-h-screen bg-[var(--color-page)] text-[var(--color-ink)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-[var(--color-app)] shadow-2xl shadow-stone-950/10">
+      <div className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col border-x border-black/5 bg-[var(--color-app)] shadow-2xl shadow-stone-950/20">
         <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-app)]/95 px-5 pb-4 pt-5 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -56,9 +59,6 @@ export function TripApp({ data }: { data: TripData }) {
               </IconButton>
             </div>
           </div>
-          <p className="mt-3 truncate text-sm text-[var(--color-muted)]">
-            {activeDay.leg.why}
-          </p>
         </header>
 
         <section className="flex-1 px-5 pb-28 pt-5">
@@ -67,7 +67,7 @@ export function TripApp({ data }: { data: TripData }) {
               activities={activeDay.activities}
               categoryById={categoryById}
               date={activeDay.date}
-              leg={activeDay.leg}
+              onSelectActivity={setSelectedActivity}
             />
           )}
           {activeTab === "legs" && <LegsPanel legs={data.legs} />}
@@ -84,25 +84,34 @@ export function TripApp({ data }: { data: TripData }) {
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const isToday = tab.id === "today";
 
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  className={`flex h-14 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition ${
+                  className={`flex flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition ${
                     isActive
-                      ? "bg-[var(--color-green)] text-white"
+                      ? "bg-[var(--color-green)] text-white shadow-lg shadow-emerald-950/25"
                       : "text-[var(--color-muted)] hover:bg-white"
-                  }`}
+                  } ${isToday ? "h-16 -translate-y-2" : "h-14"}`}
                   onClick={() => setActiveTab(tab.id)}
                 >
-                  <Icon size={20} strokeWidth={2.2} />
+                  <Icon size={isToday ? 23 : 20} strokeWidth={2.2} />
                   <span>{tab.label}</span>
                 </button>
               );
             })}
           </div>
         </nav>
+        {selectedActivity && (
+          <ActivityDetail
+            activity={selectedActivity}
+            category={categoryById.get(selectedActivity.category)}
+            leg={data.legs.find((leg) => leg.leg_id === selectedActivity.leg_id)}
+            onClose={() => setSelectedActivity(null)}
+          />
+        )}
       </div>
     </main>
   );
@@ -112,47 +121,43 @@ function TodayPanel({
   activities,
   categoryById,
   date,
-  leg,
+  onSelectActivity,
 }: {
   activities: Activity[];
   categoryById: Map<string, Category>;
   date: string;
-  leg: Leg;
+  onSelectActivity: (activity: Activity) => void;
 }) {
   return (
     <div className="space-y-6">
-      <div className="rounded-lg bg-[var(--color-sky)] p-4 text-[var(--color-ink)]">
+      <div className="rounded-xl border border-white/70 bg-[var(--color-sky)] p-4 text-[var(--color-ink)] shadow-[var(--shadow-card)]">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-[var(--color-muted)]">
               Weather
             </p>
-            <p className="mt-1 text-2xl font-semibold">Coming next</p>
-            <p className="mt-1 text-sm text-[var(--color-muted)]">
-              {leg.stay_address || `${leg.city}, ${leg.country}`}
+            <p className="mt-1 text-2xl font-semibold">High -- / Low --</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--color-blue)]">
+              Forecast coming next
             </p>
           </div>
           <CloudSun className="text-[var(--color-blue)]" size={36} />
         </div>
       </div>
 
-      <div>
-        <p className="mb-3 text-sm font-semibold text-[var(--color-muted)]">
-          {activities.length} activities from the sheet
-        </p>
-        <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-2">
-          {activities.length > 0 ? (
-            activities.map((activity) => (
-              <ActivityCard
-                key={activity.activity_id}
-                activity={activity}
-                category={categoryById.get(activity.category)}
-              />
-            ))
-          ) : (
-            <RestDayCard date={date} />
-          )}
-        </div>
+      <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-4 pt-1">
+        {activities.length > 0 ? (
+          activities.map((activity) => (
+            <ActivityCard
+              key={activity.activity_id}
+              activity={activity}
+              category={categoryById.get(activity.category)}
+              onSelect={() => onSelectActivity(activity)}
+            />
+          ))
+        ) : (
+          <RestDayCard date={date} />
+        )}
       </div>
     </div>
   );
@@ -161,12 +166,18 @@ function TodayPanel({
 function ActivityCard({
   activity,
   category,
+  onSelect,
 }: {
   activity: Activity;
   category: Category | undefined;
+  onSelect: () => void;
 }) {
   return (
-    <article className="flex h-[240px] min-w-[85%] flex-col justify-between rounded-lg bg-[var(--color-surface)] p-5 shadow-lg shadow-stone-950/8">
+    <button
+      type="button"
+      className="flex h-[235px] min-w-[85%] flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+      onClick={onSelect}
+    >
       {activity.start_time ? (
         <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-muted)]">
           <Clock size={16} />
@@ -178,26 +189,18 @@ function ActivityCard({
         </div>
       )}
       <div>
-        <h2 className="line-clamp-3 text-3xl font-semibold leading-tight">
+        <h2 className="line-clamp-4 text-3xl font-semibold leading-tight">
           {activity.title}
         </h2>
-        {activity.description && (
-          <p className="mt-3 line-clamp-3 text-base leading-6 text-[var(--color-muted)]">
-            {activity.description}
-          </p>
-        )}
       </div>
-      <p className="text-sm font-semibold text-[var(--color-muted)]">
-        <span className="mr-2">{category?.emoji ?? "•"}</span>
-        {category?.description ?? activity.category}
-      </p>
-    </article>
+      <p className="text-3xl leading-none">{category?.emoji ?? "•"}</p>
+    </button>
   );
 }
 
 function RestDayCard({ date }: { date: string }) {
   return (
-    <article className="flex h-[220px] min-w-[85%] flex-col justify-between rounded-lg bg-[var(--color-surface)] p-5 shadow-lg shadow-stone-950/8">
+    <article className="flex h-[220px] min-w-[85%] flex-col justify-between rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
       <p className="text-sm font-medium text-[var(--color-muted)]">
         {formatLongDate(date)}
       </p>
@@ -207,7 +210,7 @@ function RestDayCard({ date }: { date: string }) {
           No sheet rows for this date yet.
         </p>
       </div>
-      <p className="text-sm font-semibold text-[var(--color-muted)]">🌿 Buffer</p>
+      <p className="text-3xl leading-none">🌿</p>
     </article>
   );
 }
@@ -219,7 +222,7 @@ function LegsPanel({ legs }: { legs: Leg[] }) {
         <button
           key={leg.leg_id}
           type="button"
-          className="flex w-full items-center justify-between rounded-lg bg-[var(--color-surface)] p-4 text-left shadow-sm shadow-stone-950/5"
+          className="flex w-full items-center justify-between rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5"
         >
           <span className="min-w-0">
             <span className="block truncate text-lg font-semibold">{leg.city}</span>
@@ -261,7 +264,7 @@ function CategoriesPanel({
         <button
           key={category.category_id}
           type="button"
-          className="aspect-[1.08] rounded-lg bg-[var(--color-surface)] p-4 text-left shadow-sm shadow-stone-950/5"
+          className="aspect-[1.08] rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5"
         >
           <span className="block text-4xl">{category.emoji}</span>
           <span className="mt-4 line-clamp-2 block text-lg font-semibold leading-tight">
@@ -304,7 +307,7 @@ function CalendarPanel({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-[var(--color-surface)] p-4 shadow-sm shadow-stone-950/5">
+      <div className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
         <p className="text-sm font-semibold text-[var(--color-muted)]">
           First 35 trip days
         </p>
@@ -318,7 +321,7 @@ function CalendarPanel({
                 key={date}
                 type="button"
                 title={`${formatLongDate(date)}: ${activityCount} activities`}
-                className="flex aspect-square flex-col items-center justify-center rounded-md bg-white text-sm font-semibold text-[var(--color-ink)]"
+                className="flex aspect-square flex-col items-center justify-center rounded-md bg-white/80 text-sm font-semibold text-[var(--color-ink)] shadow-sm"
               >
                 <span>{day}</span>
                 <span
@@ -351,10 +354,76 @@ function IconButton({
       type="button"
       aria-label={label}
       title={label}
-      className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm shadow-stone-950/5"
+      className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/70 bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm shadow-stone-950/10"
     >
       {children}
     </button>
+  );
+}
+
+function ActivityDetail({
+  activity,
+  category,
+  leg,
+  onClose,
+}: {
+  activity: Activity;
+  category: Category | undefined;
+  leg: Leg | undefined;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-30 bg-stone-950/35 backdrop-blur-sm">
+      <div className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-[var(--color-app)] px-5 pb-8 pt-5 shadow-2xl">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            aria-label="Close activity"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-surface)] shadow-sm"
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="mt-6">
+          <p className="inline-flex items-center rounded-full bg-[var(--color-green)] px-3 py-1 text-sm font-semibold text-white">
+            <span className="mr-2">{category?.emoji ?? "•"}</span>
+            {category?.description ?? activity.category}
+          </p>
+          <h2 className="mt-5 text-4xl font-semibold leading-tight">
+            {activity.title}
+          </h2>
+          {activity.start_time && (
+            <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
+              <Clock size={16} />
+              {formatTimeRange(activity)}
+            </p>
+          )}
+          {activity.description && (
+            <p className="mt-6 whitespace-pre-line text-base leading-7 text-[var(--color-ink)]">
+              {activity.description}
+            </p>
+          )}
+          {(activity.location_name || activity.address || leg) && (
+            <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-muted)]">
+                <MapPin size={16} />
+                Location
+              </p>
+              <p className="mt-2 font-semibold">
+                {activity.location_name ?? leg?.city}
+              </p>
+              {activity.address && (
+                <p className="mt-1 text-sm leading-6 text-[var(--color-muted)]">
+                  {activity.address}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

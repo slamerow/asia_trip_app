@@ -1,17 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f1ea;
+  --background: #d9d0bd;
   --foreground: #1d211c;
-  --color-page: #dfe7df;
-  --color-app: #fbfaf6;
-  --color-surface: #f0ece1;
-  --color-border: #dad3c3;
+  --color-page: #cfd9cc;
+  --color-app: #fff7e8;
+  --color-surface: #f2e2c6;
+  --color-surface-rich: #e4c99c;
+  --color-border: #c9ad78;
   --color-ink: #1d211c;
-  --color-muted: #6e6659;
-  --color-green: #2d5a3d;
-  --color-sky: #d9ecf2;
-  --color-blue: #2b6d87;
+  --color-muted: #715f45;
+  --color-green: #21432f;
+  --color-green-deep: #13261b;
+  --color-gold: #a87524;
+  --color-sky: #d3e4dd;
+  --color-blue: #285f65;
+  --shadow-card: 0 18px 34px rgb(57 39 19 / 0.2), 0 2px 0 rgb(255 255 255 / 0.68) inset;
+  --shadow-lift: 0 24px 48px rgb(35 25 14 / 0.28), 0 2px 0 rgb(255 255 255 / 0.68) inset;
 }
 
 @theme inline {
@@ -34,6 +39,7 @@ body {
 
 button {
   cursor: pointer;
+  font: inherit;
 }
 
 @media (hover: none) {
