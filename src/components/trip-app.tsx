@@ -441,28 +441,53 @@ function LegsPanel({
   legs: Leg[];
   onSelectLeg: (leg: Leg) => void;
 }) {
+  const currentDate = new Date().toISOString().slice(0, 10);
+
   return (
     <div className="space-y-3">
-      {legs.map((leg) => (
-        <button
-          key={leg.leg_id}
-          type="button"
-          className="flex w-full items-center justify-between rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5"
-          onClick={() => onSelectLeg(leg)}
-        >
-          <span className="min-w-0">
-            <span className="block truncate text-lg font-semibold">{leg.city}</span>
-            <span className="mt-1 block text-sm text-[var(--color-muted)]">
-              {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} ·{" "}
-              {leg.country} · {formatNights(leg.nights)}
+      {legs.map((leg) => {
+        const status = getLegStatus(leg, currentDate);
+
+        return (
+          <button
+            key={leg.leg_id}
+            type="button"
+            className={`flex w-full items-center justify-between rounded-xl border p-4 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 ${
+              status === "current"
+                ? "border-[var(--color-green)] bg-[var(--color-sky)]"
+                : status === "upcoming"
+                  ? "border-[var(--color-border)] bg-[var(--color-surface)]"
+                  : "border-white/60 bg-[var(--color-surface)]"
+            }`}
+            onClick={() => onSelectLeg(leg)}
+          >
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="truncate text-lg font-semibold">{leg.city}</span>
+                {status !== "past" && (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      status === "current"
+                        ? "bg-[var(--color-green)] text-white"
+                        : "bg-[var(--color-app)] text-[var(--color-leather)]"
+                    }`}
+                  >
+                    {status === "current" ? "Current" : "Upcoming"}
+                  </span>
+                )}
+              </span>
+              <span className="mt-1 block text-sm text-[var(--color-muted)]">
+                {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} ·{" "}
+                {leg.country} · {formatNights(leg.nights)}
+              </span>
+              <span className="mt-1 block truncate text-sm text-[var(--color-muted)]">
+                {leg.stay_name}
+              </span>
             </span>
-            <span className="mt-1 block truncate text-sm text-[var(--color-muted)]">
-              {leg.stay_name}
-            </span>
-          </span>
-          <ChevronRight className="ml-3 shrink-0 text-[var(--color-muted)]" size={20} />
-        </button>
-      ))}
+            <ChevronRight className="ml-3 shrink-0 text-[var(--color-muted)]" size={20} />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1505,6 +1530,15 @@ function getActiveDay(legs: Leg[], activities: Activity[]) {
       (activity) => activity.date === date && activity.leg_id === currentLeg.leg_id,
     ),
   };
+}
+
+function getLegStatus(
+  leg: Leg,
+  currentDate: string,
+): "current" | "past" | "upcoming" {
+  if (currentDate >= leg.arrive && currentDate < leg.leave) return "current";
+  if (currentDate < leg.arrive) return "upcoming";
+  return "past";
 }
 
 function formatTimeRange(activity: Activity): string {
