@@ -70,16 +70,12 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
     if (!leaflet || !map || !isReady) return;
 
     markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = mapLegs.map((leg) => {
+    markersRef.current = mapLegs.map((leg, index) => {
+      const stopNumber = index + 1;
       const marker = leaflet.marker([leg.latitude ?? 0, leg.longitude ?? 0], {
-        icon: createPinIcon(leaflet, leg.leg_id === selectedLegId),
+        icon: createPinIcon(leaflet, leg.leg_id === selectedLegId, stopNumber),
       });
 
-      marker.bindTooltip(leg.city, {
-        direction: "right",
-        offset: [12, -18],
-        permanent: true,
-      });
       marker.on("click", () => onSelectLeg(leg.leg_id));
       marker.addTo(map);
 
@@ -125,10 +121,14 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
   );
 }
 
-function createPinIcon(leaflet: LeafletModule, isSelected: boolean): DivIcon {
+function createPinIcon(
+  leaflet: LeafletModule,
+  isSelected: boolean,
+  stopNumber: number,
+): DivIcon {
   return leaflet.divIcon({
     className: "trip-map-pin-wrap",
-    html: `<span class="trip-map-pin${isSelected ? " trip-map-pin-selected" : ""}"></span>`,
+    html: `<span class="trip-map-pin${isSelected ? " trip-map-pin-selected" : ""}"><span class="trip-map-pin-number">${stopNumber}</span></span>`,
     iconAnchor: isSelected ? [18, 38] : [15, 32],
     iconSize: isSelected ? [36, 38] : [30, 32],
   });

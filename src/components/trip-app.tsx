@@ -979,10 +979,12 @@ function ActivityDetail({
 
 function MapDetail({ legs, onClose }: { legs: Leg[]; onClose: () => void }) {
   const mappedLegs = legs.filter(
-    (leg) => leg.latitude !== null && leg.longitude !== null,
+    (leg) =>
+      leg.latitude !== null &&
+      leg.longitude !== null &&
+      !isMapTransitStop(leg),
   );
-  const asiaLegs = mappedLegs.filter((leg) => !isMapOutlier(leg));
-  const mapLegs = asiaLegs.length > 0 ? asiaLegs : mappedLegs;
+  const mapLegs = mappedLegs;
   const [selectedLegId, setSelectedLegId] = useState(mapLegs[0]?.leg_id ?? "");
   const selectedLeg =
     mapLegs.find((leg) => leg.leg_id === selectedLegId) ?? mapLegs[0];
@@ -1040,16 +1042,14 @@ function MapDetail({ legs, onClose }: { legs: Leg[]; onClose: () => void }) {
         ))}
       </div>
 
-      {mappedLegs.length > mapLegs.length && (
-        <p className="mt-4 text-sm font-semibold text-[var(--color-muted)]">
-          Seattle and Hawaii are left off this map so Asia stays readable.
-        </p>
-      )}
-
       {legs.length > mappedLegs.length && (
         <div className="mt-4 space-y-2">
           {legs
-            .filter((leg) => leg.latitude === null || leg.longitude === null)
+            .filter(
+              (leg) =>
+                (leg.latitude === null || leg.longitude === null) &&
+                !isMapTransitStop(leg),
+            )
             .map((leg) => (
           <a
             key={leg.leg_id}
@@ -1973,8 +1973,12 @@ function isEnglishLanguage(language: string): boolean {
   return ["english", "en"].includes(language.trim().toLowerCase());
 }
 
-function isMapOutlier(leg: Leg): boolean {
-  return leg.country.trim().toLowerCase() === "us";
+function isMapTransitStop(leg: Leg): boolean {
+  const values = [leg.leg_id, leg.city, leg.stay_name]
+    .filter(Boolean)
+    .map((value) => value.trim().toLowerCase());
+
+  return values.includes("cts");
 }
 
 function getGoogleMapsUrl(leg: Leg): string {

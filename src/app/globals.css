@@ -116,12 +116,18 @@ button {
 }
 
 .trip-map-pin {
+  align-items: center;
   background: #ef3f34;
   border: 5px solid #fff;
   border-radius: 999px;
   box-shadow: 0 3px 8px rgb(32 34 23 / 0.35);
-  display: block;
+  color: #fff;
+  display: flex;
+  font-family: var(--font-body), Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 900;
   height: 28px;
+  justify-content: center;
   position: relative;
   width: 28px;
 }
@@ -141,6 +147,13 @@ button {
 
 .trip-map-pin-selected {
   background: var(--color-leather);
+  font-size: 15px;
   height: 34px;
   width: 34px;
+}
+
+.trip-map-pin-number {
+  line-height: 1;
+  position: relative;
+  z-index: 1;
 }
