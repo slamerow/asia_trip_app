@@ -605,6 +605,7 @@ function LegsPanel({
     <div className="space-y-3">
       {legs.map((leg, index) => {
         const status = getLegQueueStatus(legs, index, currentDate);
+        const countryColor = getCountryColor(leg.country);
 
         return (
           <button
@@ -619,6 +620,11 @@ function LegsPanel({
             }`}
             onClick={() => onSelectLeg(leg)}
           >
+            <span
+              className="absolute bottom-0 right-0 top-0 w-1.5"
+              style={{ backgroundColor: countryColor.accent }}
+              aria-hidden="true"
+            />
             {status !== "quiet" && (
               <span
                 className={`absolute bottom-3 left-0 top-3 w-1 rounded-r-full ${
@@ -637,7 +643,16 @@ function LegsPanel({
               </span>
               <span className="mt-1 block text-sm text-[var(--color-muted)]">
                 {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} ·{" "}
-                {leg.country} · {formatNights(leg.nights)}
+                <span
+                  className="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
+                  style={{
+                    backgroundColor: countryColor.background,
+                    color: countryColor.text,
+                  }}
+                >
+                  {leg.country}
+                </span>{" "}
+                · {formatNights(leg.nights)}
               </span>
               <span className="mt-1 block truncate text-sm text-[var(--color-muted)]">
                 {leg.stay_name}
@@ -1798,11 +1813,8 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
       const previousLeg = getTransitionFromLeg(legs, date, leg);
 
       if (leg && previousLeg) {
-        const legIndex = getLegIndex(legs, leg);
-        const previousLegIndex = getLegIndex(legs, previousLeg);
-
         row.push({
-          background: `linear-gradient(to bottom, ${getLegColor(previousLegIndex)} 0 50%, ${getLegColor(legIndex)} 50% 100%)`,
+          background: `linear-gradient(to bottom, ${getCountryColor(previousLeg.country).calendar} 0 50%, ${getCountryColor(leg.country).calendar} 50% 100%)`,
           dateLabel: formatDateNumber(date),
           key: `${date}-${previousLeg.leg_id}-${leg.leg_id}`,
           label: `${shortCity(previousLeg.city)} / ${shortCity(leg.city)}`,
@@ -1833,7 +1845,7 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
       const label = leg ? shortCity(leg.city) : "";
 
       row.push({
-        background: getLegColor(getLegIndex(legs, leg)),
+        background: getCountryColor(leg?.country ?? "Trip").calendar,
         dateLabel: formatSegmentDateLabel(segmentDates),
         key: `${segmentDates[0]}-${leg?.leg_id ?? "none"}`,
         label,
@@ -1871,24 +1883,57 @@ function getTransitionFromLeg(
   return previousLeg;
 }
 
-function getLegIndex(legs: Leg[], leg: Leg | undefined): number {
-  if (!leg) return 0;
-
-  const index = legs.findIndex((item) => item.leg_id === leg.leg_id);
-  return index >= 0 ? index : 0;
-}
-
-function getLegColor(index: number): string {
+function getCountryColor(country: string): {
+  accent: string;
+  background: string;
+  calendar: string;
+  text: string;
+} {
   const colors = [
-    "rgba(31, 63, 45, 0.18)",
-    "rgba(177, 122, 37, 0.22)",
-    "rgba(90, 54, 32, 0.18)",
-    "rgba(40, 95, 101, 0.18)",
-    "rgba(132, 92, 37, 0.2)",
-    "rgba(76, 98, 57, 0.2)",
+    {
+      accent: "rgb(37 95 101)",
+      background: "rgb(37 95 101 / 0.15)",
+      calendar: "rgba(37, 95, 101, 0.24)",
+      text: "rgb(25 76 82)",
+    },
+    {
+      accent: "rgb(157 96 28)",
+      background: "rgb(157 96 28 / 0.16)",
+      calendar: "rgba(157, 96, 28, 0.24)",
+      text: "rgb(118 68 16)",
+    },
+    {
+      accent: "rgb(39 89 56)",
+      background: "rgb(39 89 56 / 0.15)",
+      calendar: "rgba(39, 89, 56, 0.24)",
+      text: "rgb(24 64 38)",
+    },
+    {
+      accent: "rgb(125 74 112)",
+      background: "rgb(125 74 112 / 0.15)",
+      calendar: "rgba(125, 74, 112, 0.23)",
+      text: "rgb(94 50 83)",
+    },
+    {
+      accent: "rgb(121 89 32)",
+      background: "rgb(121 89 32 / 0.16)",
+      calendar: "rgba(121, 89, 32, 0.24)",
+      text: "rgb(90 63 19)",
+    },
+    {
+      accent: "rgb(76 98 57)",
+      background: "rgb(76 98 57 / 0.15)",
+      calendar: "rgba(76, 98, 57, 0.24)",
+      text: "rgb(50 71 35)",
+    },
   ];
+  const normalizedCountry = country.trim().toLowerCase();
+  const hash = Array.from(normalizedCountry).reduce(
+    (sum, character) => sum + character.charCodeAt(0),
+    0,
+  );
 
-  return colors[index % colors.length];
+  return colors[hash % colors.length];
 }
 
 function shortCity(city: string): string {
