@@ -23,6 +23,14 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
     [legs],
   );
   const legKey = mapLegs.map((leg) => leg.leg_id).join("|");
+  const defaultViewLegs = useMemo(() => {
+    const nonUsLegs = mapLegs.filter(
+      (leg) => leg.country.trim().toLowerCase() !== "us",
+    );
+
+    return nonUsLegs.length > 0 ? nonUsLegs : mapLegs;
+  }, [mapLegs]);
+  const defaultViewKey = defaultViewLegs.map((leg) => leg.leg_id).join("|");
 
   useEffect(() => {
     let isMounted = true;
@@ -87,9 +95,9 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
     const leaflet = leafletRef.current;
     const map = mapRef.current;
 
-    if (!leaflet || !map || !isReady || mapLegs.length === 0) return;
+    if (!leaflet || !map || !isReady || defaultViewLegs.length === 0) return;
 
-    const points = mapLegs.map(
+    const points = defaultViewLegs.map(
       (leg) => [leg.latitude ?? 0, leg.longitude ?? 0] as [number, number],
     );
 
@@ -99,7 +107,7 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
     }
 
     map.fitBounds(leaflet.latLngBounds(points), { padding: [24, 24] });
-  }, [isReady, legKey, mapLegs]);
+  }, [defaultViewKey, defaultViewLegs, isReady, legKey]);
 
   if (mapLegs.length === 0) {
     return (
