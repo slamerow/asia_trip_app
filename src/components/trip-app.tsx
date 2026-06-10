@@ -715,6 +715,9 @@ function ActivityDetail({
   leg: Leg | undefined;
   onClose: () => void;
 }) {
+  const touchStartY = useRef<number | null>(null);
+  const touchStartScrollTop = useRef(0);
+
   return (
     <motion.div
       className="fixed inset-0 z-30 bg-stone-950/35 backdrop-blur-sm"
@@ -727,6 +730,25 @@ function ActivityDetail({
         className="mx-auto flex max-h-dvh min-h-dvh w-full max-w-[440px] flex-col overflow-y-auto overscroll-contain bg-[var(--color-app)] px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] shadow-2xl"
         initial={{ borderRadius: 22, opacity: 0.96, scale: 0.94, y: 80 }}
         animate={{ borderRadius: 0, opacity: 1, scale: 1, y: 0 }}
+        onTouchEnd={(event) => {
+          const startY = touchStartY.current;
+          const touch = event.changedTouches[0];
+
+          if (
+            startY !== null &&
+            touch &&
+            touch.clientY - startY > 68 &&
+            touchStartScrollTop.current < 8
+          ) {
+            onClose();
+          }
+
+          touchStartY.current = null;
+        }}
+        onTouchStart={(event) => {
+          touchStartY.current = event.touches[0]?.clientY ?? null;
+          touchStartScrollTop.current = event.currentTarget.scrollTop;
+        }}
         exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
         transition={{ damping: 28, stiffness: 260, type: "spring" }}
       >
