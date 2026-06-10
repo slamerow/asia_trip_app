@@ -277,6 +277,7 @@ export function TripApp({
           )}
           {isWeatherOpen && (
             <WeatherDetail
+              city={activeDay.leg.city}
               isLoading={isWeatherLoading}
               onClose={() => setIsWeatherOpen(false)}
               weather={selectedWeather}
@@ -359,7 +360,7 @@ function TodayPanel({
         {!isDefaultDate && (
           <button
             type="button"
-            className="mx-auto mt-3 block rounded-full bg-[var(--color-green)] px-3 py-1 text-xs font-bold uppercase text-white shadow-sm"
+            className="mx-auto mt-3 block rounded-full border border-[var(--color-green)]/25 bg-[var(--color-green)]/10 px-3 py-1 text-xs font-bold uppercase text-[var(--color-green)] shadow-sm"
             onClick={() => onSelectDate(defaultDate)}
           >
             Back to today
@@ -433,10 +434,12 @@ function MiniWeatherSummary({
 }
 
 function WeatherDetail({
+  city,
   isLoading,
   onClose,
   weather,
 }: {
+  city: string;
   isLoading: boolean;
   onClose: () => void;
   weather: WeatherForecast;
@@ -445,7 +448,7 @@ function WeatherDetail({
     <Overlay onClose={onClose} closeLabel="Close weather">
       <p className="text-sm font-semibold text-[var(--color-muted)]">Weather</p>
       <h2 className="mt-2 text-4xl font-semibold leading-tight">
-        {weather.location}
+        {city}
       </h2>
 
       <div className="mt-6 rounded-xl border border-white/70 bg-[var(--color-sky)] p-5 shadow-[var(--shadow-card)]">
