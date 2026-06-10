@@ -57,6 +57,7 @@ export function TripApp({
   const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isStayOpen, setIsStayOpen] = useState(false);
+  const [isWeatherOpen, setIsWeatherOpen] = useState(false);
 
   const categoryById = useMemo(
     () => new Map(data.categories.map((category) => [category.category_id, category])),
@@ -132,6 +133,7 @@ export function TripApp({
             {activeTab === "today" ? (
               <MiniWeatherSummary
                 isLoading={isWeatherLoading}
+                onClick={() => setIsWeatherOpen(true)}
                 weather={selectedWeather}
               />
             ) : (
@@ -273,6 +275,13 @@ export function TripApp({
           {isStayOpen && (
             <StayDetail leg={activeDay.leg} onClose={() => setIsStayOpen(false)} />
           )}
+          {isWeatherOpen && (
+            <WeatherDetail
+              isLoading={isWeatherLoading}
+              onClose={() => setIsWeatherOpen(false)}
+              weather={selectedWeather}
+            />
+          )}
           {isPhrasebookOpen && (
             <PhrasebookDetail
               activeLanguage={activeDay.leg.language}
@@ -318,12 +327,12 @@ function TodayPanel({
 
   return (
     <div className="flex min-h-[calc(100dvh-15rem)] flex-col">
-      <div className="rounded-xl border border-[var(--color-border)]/55 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
-        <div className="flex items-center justify-between gap-3">
+      <div className="pb-2 pt-1">
+        <div className="flex items-center justify-between gap-3 px-1">
           <button
             type="button"
             aria-label="Previous day"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/65 bg-[var(--color-app)]/70 text-[var(--color-ink)] shadow-sm disabled:opacity-35"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--color-ink)] transition hover:bg-white/35 disabled:opacity-30"
             disabled={!canGoPrevious}
             onClick={() => moveDay(-1)}
           >
@@ -340,7 +349,7 @@ function TodayPanel({
           <button
             type="button"
             aria-label="Next day"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/65 bg-[var(--color-app)]/70 text-[var(--color-ink)] shadow-sm disabled:opacity-35"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--color-ink)] transition hover:bg-white/35 disabled:opacity-30"
             disabled={!canGoNext}
             onClick={() => moveDay(1)}
           >
@@ -382,9 +391,11 @@ function TodayPanel({
 
 function MiniWeatherSummary({
   isLoading = false,
+  onClick,
   weather,
 }: {
   isLoading?: boolean;
+  onClick: () => void;
   weather: WeatherForecast;
 }) {
   const label =
@@ -401,7 +412,12 @@ function MiniWeatherSummary({
           : weather.message;
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg border border-white/65 bg-[var(--color-sky)] px-2.5 py-2 shadow-sm">
+    <button
+      type="button"
+      aria-label="Weather details"
+      className="flex min-w-0 items-center gap-2 rounded-lg border border-white/65 bg-[var(--color-sky)] px-2.5 py-2 text-left shadow-sm transition hover:-translate-y-0.5"
+      onClick={onClick}
+    >
       <CloudSun className="shrink-0 text-[var(--color-blue)]" size={22} />
       <div className="min-w-0">
         <p className="text-[10px] font-bold uppercase leading-none text-[var(--color-muted)]">
@@ -412,7 +428,78 @@ function MiniWeatherSummary({
           {detail}
         </p>
       </div>
-    </div>
+    </button>
+  );
+}
+
+function WeatherDetail({
+  isLoading,
+  onClose,
+  weather,
+}: {
+  isLoading: boolean;
+  onClose: () => void;
+  weather: WeatherForecast;
+}) {
+  return (
+    <Overlay onClose={onClose} closeLabel="Close weather">
+      <p className="text-sm font-semibold text-[var(--color-muted)]">Weather</p>
+      <h2 className="mt-2 text-4xl font-semibold leading-tight">
+        {weather.location}
+      </h2>
+
+      <div className="mt-6 rounded-xl border border-white/70 bg-[var(--color-sky)] p-5 shadow-[var(--shadow-card)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            {weather.status === "ready" ? (
+              <>
+                <p className="text-4xl font-semibold">
+                  {weather.high}° / {weather.low}°
+                </p>
+                <p className="mt-2 text-base font-semibold text-[var(--color-blue)]">
+                  {isLoading ? "Updating forecast" : weather.condition}
+                  {weather.rainChance !== null ? ` · ${weather.rainChance}% rain` : ""}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-4xl font-semibold">High -- / Low --</p>
+                <p className="mt-2 text-base font-semibold text-[var(--color-blue)]">
+                  {isLoading
+                    ? "Updating forecast"
+                    : weather.message === "Available soon"
+                      ? "Forecast coming next"
+                      : weather.message}
+                </p>
+              </>
+            )}
+          </div>
+          <CloudSun className="shrink-0 text-[var(--color-blue)]" size={42} />
+        </div>
+      </div>
+
+      {weather.status === "ready" && weather.outlook.length > 0 && (
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {weather.outlook.map((day) => (
+            <div
+              key={day.date}
+              className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]"
+            >
+              <p className="text-xs font-bold uppercase text-[var(--color-muted)]">
+                {formatShortDate(day.date)}
+              </p>
+              <p className="mt-2 text-xl font-semibold">
+                {day.high}° / {day.low}°
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[var(--color-blue)]">
+                {day.condition}
+                {day.rainChance !== null ? ` · ${day.rainChance}%` : ""}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Overlay>
   );
 }
 
