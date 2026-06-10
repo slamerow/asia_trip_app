@@ -2,27 +2,27 @@
 @import "leaflet/dist/leaflet.css";
 
 :root {
-  --background: #cfc3aa;
-  --foreground: #1d211c;
+  --background: #b7ad92;
+  --foreground: #211c13;
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --font-body: "Avenir Next", Avenir, "Trebuchet MS", Arial, sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", Consolas, monospace;
-  --color-page: #bfccb8;
-  --color-app: #fff4df;
-  --color-surface: #f0ddbc;
-  --color-surface-rich: #dcbf87;
-  --color-border: #b99555;
-  --color-ink: #202217;
-  --color-muted: #715b39;
-  --color-green: #1f3f2d;
-  --color-green-deep: #102318;
-  --color-leather: #5a3620;
-  --color-brass: #b17a25;
-  --color-brass-deep: #8a5a16;
-  --color-sky: #d2e2d5;
-  --color-blue: #285f65;
-  --shadow-card: 0 18px 36px rgb(54 35 15 / 0.24), 0 2px 0 rgb(255 255 255 / 0.62) inset;
-  --shadow-lift: 0 26px 52px rgb(35 23 10 / 0.32), 0 2px 0 rgb(255 255 255 / 0.65) inset;
+  --color-page: #aeb99d;
+  --color-app: #f8e8c5;
+  --color-surface: #ead2a2;
+  --color-surface-rich: #c99f57;
+  --color-border: #9d7433;
+  --color-ink: #231f14;
+  --color-muted: #6f552e;
+  --color-green: #183823;
+  --color-green-deep: #0d2415;
+  --color-leather: #4c2a18;
+  --color-brass: #a56f1e;
+  --color-brass-deep: #75470f;
+  --color-sky: #cad8c4;
+  --color-blue: #245c62;
+  --shadow-card: 0 18px 34px rgb(49 31 12 / 0.25), 0 1px 0 rgb(255 255 255 / 0.58) inset, 0 -1px 0 rgb(99 63 23 / 0.09) inset;
+  --shadow-lift: 0 28px 54px rgb(41 25 9 / 0.34), 0 2px 0 rgb(255 255 255 / 0.62) inset;
 }
 
 @theme inline {
@@ -38,16 +38,37 @@
 
 html,
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 18% 0%, rgb(246 226 181 / 0.34), transparent 32rem),
+    radial-gradient(circle at 88% 12%, rgb(30 56 35 / 0.2), transparent 28rem),
+    linear-gradient(135deg, #9cab8d 0%, var(--background) 44%, #d7c79f 100%);
   color: var(--foreground);
   font-family: var(--font-body), Arial, Helvetica, sans-serif;
   overscroll-behavior-y: none;
+  text-rendering: geometricPrecision;
 }
 
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
+}
+
+.journal-page {
+  background:
+    radial-gradient(circle at 12% 8%, rgb(255 244 218 / 0.5), transparent 26rem),
+    radial-gradient(circle at 90% 72%, rgb(76 42 24 / 0.08), transparent 24rem),
+    var(--color-page);
+}
+
+.journal-app {
+  background-color: var(--color-app);
+  background-image:
+    linear-gradient(90deg, rgb(255 255 255 / 0.25), transparent 18%, transparent 82%, rgb(91 57 24 / 0.08)),
+    radial-gradient(circle at 24% 12%, rgb(255 255 255 / 0.34) 0 1px, transparent 1px),
+    radial-gradient(circle at 74% 36%, rgb(91 57 24 / 0.08) 0 1px, transparent 1px),
+    linear-gradient(180deg, rgb(255 255 255 / 0.22), transparent 18rem);
+  background-size: auto, 18px 18px, 23px 23px, auto;
 }
 
 button {

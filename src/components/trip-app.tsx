@@ -68,8 +68,8 @@ export function TripApp({
   const title = getHeaderTitle(activeTab, activeDay.leg);
 
   return (
-    <main className="min-h-screen bg-[var(--color-page)] text-[var(--color-ink)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col border-x border-black/5 bg-[var(--color-app)] shadow-2xl shadow-stone-950/20">
+    <main className="journal-page min-h-screen bg-[var(--color-page)] text-[var(--color-ink)]">
+      <div className="journal-app mx-auto flex min-h-screen w-full max-w-[440px] flex-col border-x border-black/10 bg-[var(--color-app)] shadow-2xl shadow-stone-950/25">
         <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-app)]/95 px-5 pb-4 pt-5 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
