@@ -1,10 +1,11 @@
 "use client";
 
 import type { Leg } from "@/lib/trip-data";
-import type { DivIcon, Map as LeafletMap, Marker } from "leaflet";
+import type { DivIcon, Map as LeafletMap, Marker, TileLayer } from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type LeafletModule = typeof import("leaflet");
+type MapStyle = "satellite" | "street";
 
 type TripMapProps = {
   legs: Leg[];
@@ -12,11 +13,44 @@ type TripMapProps = {
   selectedLegId: string;
 };
 
+const mapStyles: Record<
+  MapStyle,
+  {
+    attribution: string;
+    labels?: {
+      attribution: string;
+      url: string;
+    };
+    label: string;
+    url: string;
+  }
+> = {
+  street: {
+    attribution:
+      "Tiles &copy; Esri &mdash; Sources: Esri, HERE, Garmin, FAO, NOAA, USGS, &copy; OpenStreetMap contributors, and the GIS User Community",
+    label: "Street",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+  },
+  satellite: {
+    attribution:
+      "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    label: "Satellite",
+    labels: {
+      attribution:
+        "Labels &copy; Esri &mdash; Sources: Esri, HERE, Garmin, FAO, NOAA, USGS, &copy; OpenStreetMap contributors, and the GIS User Community",
+      url: "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+    },
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  },
+};
+
 export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<LeafletModule | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
+  const tileLayersRef = useRef<TileLayer[]>([]);
+  const [mapStyle, setMapStyle] = useState<MapStyle>("street");
   const [isReady, setIsReady] = useState(false);
   const mapLegs = useMemo(
     () => legs.filter((leg) => leg.latitude !== null && leg.longitude !== null),
@@ -49,13 +83,6 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
         zoomControl: true,
       });
 
-      leaflet
-        .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        })
-        .addTo(mapRef.current);
-
       setIsReady(true);
     }
 
@@ -63,6 +90,8 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
 
     return () => {
       isMounted = false;
+      tileLayersRef.current.forEach((layer) => layer.remove());
+      tileLayersRef.current = [];
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       mapRef.current?.remove();
@@ -70,6 +99,38 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
       leafletRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const leaflet = leafletRef.current;
+    const map = mapRef.current;
+
+    if (!leaflet || !map || !isReady) return;
+
+    tileLayersRef.current.forEach((layer) => layer.remove());
+    tileLayersRef.current = [];
+
+    const style = mapStyles[mapStyle];
+    const baseLayer = leaflet
+      .tileLayer(style.url, {
+        attribution: style.attribution,
+        maxZoom: 19,
+      })
+      .addTo(map);
+
+    tileLayersRef.current.push(baseLayer);
+
+    if (style.labels) {
+      const labelLayer = leaflet
+        .tileLayer(style.labels.url, {
+          attribution: style.labels.attribution,
+          maxZoom: 19,
+          pane: "overlayPane",
+        })
+        .addTo(map);
+
+      tileLayersRef.current.push(labelLayer);
+    }
+  }, [isReady, mapStyle]);
 
   useEffect(() => {
     const leaflet = leafletRef.current;
@@ -120,6 +181,22 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
   return (
     <>
       <div ref={containerRef} className="h-full w-full" />
+      <div className="absolute right-3 top-3 z-[500] flex rounded-lg border border-white/70 bg-[var(--color-app)]/90 p-1 shadow-lg shadow-stone-950/20 backdrop-blur">
+        {(Object.keys(mapStyles) as MapStyle[]).map((styleId) => (
+          <button
+            key={styleId}
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
+              mapStyle === styleId
+                ? "bg-[var(--color-green)] text-white"
+                : "text-[var(--color-muted)]"
+            }`}
+            onClick={() => setMapStyle(styleId)}
+          >
+            {mapStyles[styleId].label}
+          </button>
+        ))}
+      </div>
       {!isReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface)] text-sm font-semibold text-[var(--color-muted)]">
           Loading map
