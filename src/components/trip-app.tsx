@@ -613,15 +613,16 @@ function LegsPanel({
             type="button"
             className={`relative flex w-full items-center justify-between overflow-hidden rounded-xl border p-4 pl-5 text-left shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 ${
               status === "current"
-                ? "border-[var(--color-green)] bg-[var(--color-sky)]"
+                ? "border-[var(--color-green)]"
                 : status === "next"
-                  ? "border-[var(--color-border)] bg-[var(--color-surface)]"
-                  : "border-white/60 bg-[var(--color-surface)]"
+                  ? "border-[var(--color-border)]"
+                  : "border-white/60"
             }`}
+            style={{ backgroundColor: countryColor.card }}
             onClick={() => onSelectLeg(leg)}
           >
             <span
-              className="absolute bottom-0 right-0 top-0 w-1.5"
+              className="absolute bottom-0 right-0 top-0 w-2"
               style={{ backgroundColor: countryColor.accent }}
               aria-hidden="true"
             />
@@ -644,9 +645,8 @@ function LegsPanel({
               <span className="mt-1 block text-sm text-[var(--color-muted)]">
                 {formatShortDate(leg.arrive)} - {formatShortDate(leg.leave)} ·{" "}
                 <span
-                  className="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
+                  className="inline-flex rounded-full border border-black/10 bg-white/25 px-2 py-0.5 text-xs font-bold"
                   style={{
-                    backgroundColor: countryColor.background,
                     color: countryColor.text,
                   }}
                 >
@@ -1885,45 +1885,45 @@ function getTransitionFromLeg(
 
 function getCountryColor(country: string): {
   accent: string;
-  background: string;
   calendar: string;
+  card: string;
   text: string;
 } {
   const colors = [
     {
       accent: "rgb(37 95 101)",
-      background: "rgb(37 95 101 / 0.15)",
       calendar: "rgba(37, 95, 101, 0.24)",
+      card: "rgb(37 95 101 / 0.22)",
       text: "rgb(25 76 82)",
     },
     {
       accent: "rgb(157 96 28)",
-      background: "rgb(157 96 28 / 0.16)",
       calendar: "rgba(157, 96, 28, 0.24)",
+      card: "rgb(157 96 28 / 0.22)",
       text: "rgb(118 68 16)",
     },
     {
       accent: "rgb(39 89 56)",
-      background: "rgb(39 89 56 / 0.15)",
       calendar: "rgba(39, 89, 56, 0.24)",
+      card: "rgb(39 89 56 / 0.22)",
       text: "rgb(24 64 38)",
     },
     {
       accent: "rgb(125 74 112)",
-      background: "rgb(125 74 112 / 0.15)",
       calendar: "rgba(125, 74, 112, 0.23)",
+      card: "rgb(125 74 112 / 0.2)",
       text: "rgb(94 50 83)",
     },
     {
       accent: "rgb(121 89 32)",
-      background: "rgb(121 89 32 / 0.16)",
       calendar: "rgba(121, 89, 32, 0.24)",
+      card: "rgb(121 89 32 / 0.22)",
       text: "rgb(90 63 19)",
     },
     {
       accent: "rgb(76 98 57)",
-      background: "rgb(76 98 57 / 0.15)",
       calendar: "rgba(76, 98, 57, 0.24)",
+      card: "rgb(76 98 57 / 0.22)",
       text: "rgb(50 71 35)",
     },
   ];
