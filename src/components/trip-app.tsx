@@ -20,7 +20,7 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type TabId = "legs" | "categories" | "today" | "calendar";
 type CalendarSegment = {
@@ -53,7 +53,6 @@ export function TripApp({
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [selectedLeg, setSelectedLeg] = useState<Leg | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isPhrasebookOpen, setIsPhrasebookOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -64,22 +63,87 @@ export function TripApp({
     [data.categories],
   );
 
-  const activeDay = useMemo(() => getActiveDay(data.legs, data.activities), [data]);
+  const defaultDay = useMemo(() => getActiveDay(data.legs, data.activities), [data]);
+  const tripDates = useMemo(() => getTripDates(data.legs), [data.legs]);
+  const [todayDate, setTodayDate] = useState(defaultDay.date);
+  const activeDay = useMemo(
+    () => getTripDay(data.legs, data.activities, todayDate) ?? defaultDay,
+    [data.activities, data.legs, defaultDay, todayDate],
+  );
+  const [fetchedWeather, setFetchedWeather] = useState<{
+    key: string;
+    weather: WeatherForecast;
+  } | null>(null);
   const title = getHeaderTitle(activeTab, activeDay.leg);
+  const weatherKey = `${activeDay.leg.leg_id}:${activeDay.date}`;
+  const selectedWeather =
+    activeDay.date === defaultDay.date
+      ? weather
+      : fetchedWeather?.key === weatherKey
+        ? fetchedWeather.weather
+        : {
+            location: activeDay.leg.city,
+            message: "Available soon",
+            status: "unavailable",
+          } satisfies WeatherForecast;
+  const isWeatherLoading =
+    activeDay.date !== defaultDay.date && fetchedWeather?.key !== weatherKey;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (activeDay.date === defaultDay.date) {
+      return;
+    }
+
+    fetch(
+      `/api/weather?leg_id=${encodeURIComponent(activeDay.leg.leg_id)}&date=${activeDay.date}`,
+    )
+      .then((response) => {
+        if (!response.ok) throw new Error("Weather request failed.");
+        return response.json() as Promise<WeatherForecast>;
+      })
+      .then((forecast) => {
+        if (isMounted) setFetchedWeather({ key: weatherKey, weather: forecast });
+      })
+      .catch(() => {
+        if (isMounted) {
+          setFetchedWeather({
+            key: weatherKey,
+            weather: {
+              location: activeDay.leg.city,
+              message: "Weather unavailable",
+              status: "unavailable",
+            },
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeDay.date, activeDay.leg.city, activeDay.leg.leg_id, defaultDay.date, weatherKey]);
 
   return (
     <main className="journal-page min-h-screen bg-[var(--color-page)] text-[var(--color-ink)]">
       <div className="journal-app mx-auto flex min-h-screen w-full max-w-[440px] flex-col border-x border-black/10 bg-[var(--color-app)] shadow-2xl shadow-stone-950/25">
         <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-app)]/95 px-5 pb-4 pt-5 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-[var(--color-muted)]">
-                {formatLongDate(activeDay.date)}
-              </p>
-              <h1 className="mt-1 truncate text-4xl font-semibold tracking-normal">
-                {title}
-              </h1>
-            </div>
+            {activeTab === "today" ? (
+              <MiniWeatherSummary
+                isLoading={isWeatherLoading}
+                weather={selectedWeather}
+              />
+            ) : (
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-[var(--color-muted)]">
+                  {formatLongDate(activeDay.date)}
+                </p>
+                <h1 className="mt-1 truncate text-4xl font-semibold tracking-normal">
+                  {title}
+                </h1>
+              </div>
+            )}
             <div className="flex shrink-0 gap-2">
               <IconButton label="Stay" onClick={() => setIsStayOpen(true)}>
                 <MapPin size={19} />
@@ -101,10 +165,13 @@ export function TripApp({
           {activeTab === "today" && (
             <TodayPanel
               activities={activeDay.activities}
+              activeDate={activeDay.date}
               categoryById={categoryById}
-              date={activeDay.date}
+              defaultDate={defaultDay.date}
+              leg={activeDay.leg}
               onSelectActivity={setSelectedActivity}
-              weather={weather}
+              onSelectDate={setTodayDate}
+              tripDates={tripDates}
             />
           )}
           {activeTab === "legs" && (
@@ -121,7 +188,10 @@ export function TripApp({
             <CalendarPanel
               activities={data.activities}
               legs={data.legs}
-              onSelectDate={setSelectedDate}
+              onSelectDate={(date) => {
+                setTodayDate(date);
+                setActiveTab("today");
+              }}
               onSelectLeg={setSelectedLeg}
             />
           )}
@@ -185,18 +255,6 @@ export function TripApp({
               }}
             />
           )}
-          {selectedDate && (
-            <DateDetail
-              activities={data.activities.filter((activity) => activity.date === selectedDate)}
-              date={selectedDate}
-              leg={getLegForDate(data.legs, selectedDate)}
-              onClose={() => setSelectedDate(null)}
-              onSelectActivity={(activity) => {
-                setSelectedDate(null);
-                setSelectedActivity(activity);
-              }}
-            />
-          )}
           {isSearchOpen && (
             <SearchDetail
               activities={data.activities}
@@ -230,20 +288,75 @@ export function TripApp({
 
 function TodayPanel({
   activities,
+  activeDate,
   categoryById,
-  date,
+  defaultDate,
+  leg,
   onSelectActivity,
-  weather,
+  onSelectDate,
+  tripDates,
 }: {
   activities: Activity[];
+  activeDate: string;
   categoryById: Map<string, Category>;
-  date: string;
+  defaultDate: string;
+  leg: Leg;
   onSelectActivity: (activity: Activity) => void;
-  weather: WeatherForecast;
+  onSelectDate: (date: string) => void;
+  tripDates: string[];
 }) {
+  const activeIndex = tripDates.indexOf(activeDate);
+  const canGoPrevious = activeIndex > 0;
+  const canGoNext = activeIndex >= 0 && activeIndex < tripDates.length - 1;
+  const isDefaultDate = activeDate === defaultDate;
+
+  const moveDay = (direction: -1 | 1) => {
+    const nextDate = tripDates[activeIndex + direction];
+
+    if (nextDate) onSelectDate(nextDate);
+  };
+
   return (
     <div className="flex min-h-[calc(100dvh-15rem)] flex-col">
-      <WeatherCard weather={weather} />
+      <div className="rounded-xl border border-[var(--color-border)]/55 bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            aria-label="Previous day"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/65 bg-[var(--color-app)]/70 text-[var(--color-ink)] shadow-sm disabled:opacity-35"
+            disabled={!canGoPrevious}
+            onClick={() => moveDay(-1)}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <div className="min-w-0 text-center">
+            <p className="text-sm font-semibold text-[var(--color-muted)]">
+              {formatLongDate(activeDate)}
+            </p>
+            <h2 className="mt-1 truncate text-4xl font-semibold leading-tight">
+              {leg.city}
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Next day"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/65 bg-[var(--color-app)]/70 text-[var(--color-ink)] shadow-sm disabled:opacity-35"
+            disabled={!canGoNext}
+            onClick={() => moveDay(1)}
+          >
+            <ChevronRight size={22} />
+          </button>
+        </div>
+        {!isDefaultDate && (
+          <button
+            type="button"
+            className="mx-auto mt-3 block rounded-full bg-[var(--color-green)] px-3 py-1 text-xs font-bold uppercase text-white shadow-sm"
+            onClick={() => onSelectDate(defaultDate)}
+          >
+            Back to today
+          </button>
+        )}
+      </div>
 
       <div className="-mx-5 flex flex-1 items-center">
         <div className="flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth pb-5 pt-6">
@@ -258,7 +371,7 @@ function TodayPanel({
               />
             ))
           ) : (
-            <RestDayCard date={date} />
+            <RestDayCard date={activeDate} />
           )}
           <div className="shrink-0 basis-[11%]" aria-hidden="true" />
         </div>
@@ -267,83 +380,38 @@ function TodayPanel({
   );
 }
 
-function WeatherCard({ weather }: { weather: WeatherForecast }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const canExpand = weather.status === "ready" && weather.outlook.length > 0;
+function MiniWeatherSummary({
+  isLoading = false,
+  weather,
+}: {
+  isLoading?: boolean;
+  weather: WeatherForecast;
+}) {
+  const label =
+    weather.status === "ready"
+      ? `${weather.high}° / ${weather.low}°`
+      : "-- / --";
+  const detail =
+    isLoading
+      ? "Updating"
+      : weather.status === "ready"
+        ? weather.condition
+        : weather.message === "Available soon"
+          ? "Forecast soon"
+          : weather.message;
 
   return (
-    <div className="rounded-xl border border-white/70 bg-[var(--color-sky)] p-4 text-[var(--color-ink)] shadow-[var(--shadow-card)]">
-      <button
-        type="button"
-        aria-expanded={canExpand ? isExpanded : undefined}
-        className="flex w-full items-start justify-between gap-4 text-left"
-        onClick={() => {
-          if (canExpand) setIsExpanded((expanded) => !expanded);
-        }}
-      >
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[var(--color-muted)]">
-            Weather
-          </p>
-          {weather.status === "ready" ? (
-            <>
-              <p className="mt-1 text-3xl font-semibold">
-                {weather.high}° / {weather.low}°
-              </p>
-              <p className="mt-1 text-sm font-semibold text-[var(--color-blue)]">
-                {weather.condition}
-                {weather.rainChance !== null ? ` · ${weather.rainChance}% rain` : ""}
-              </p>
-              {canExpand && (
-                <p className="mt-2 text-xs font-bold uppercase text-[var(--color-muted)]">
-                  2-day outlook
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="mt-1 text-3xl font-semibold">High -- / Low --</p>
-              <p className="mt-1 text-sm font-semibold text-[var(--color-blue)]">
-                {weather.message === "Available soon"
-                  ? "Forecast coming next"
-                  : weather.message}
-              </p>
-            </>
-          )}
-        </div>
-        <span className="flex shrink-0 items-center gap-2">
-          <CloudSun className="text-[var(--color-blue)]" size={36} />
-          {canExpand && (
-            <ChevronRight
-              className={`text-[var(--color-blue)] transition ${
-                isExpanded ? "rotate-90" : ""
-              }`}
-              size={18}
-            />
-          )}
-        </span>
-      </button>
-
-      {canExpand && isExpanded && (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {weather.outlook.map((day) => (
-            <div
-              key={day.date}
-              className="rounded-lg border border-white/55 bg-[var(--color-app)]/55 px-3 py-2"
-            >
-              <p className="text-xs font-bold uppercase text-[var(--color-muted)]">
-                {formatShortDate(day.date)}
-              </p>
-              <p className="mt-1 text-sm font-semibold">
-                {day.high}° / {day.low}°
-              </p>
-              <p className="mt-0.5 truncate text-xs font-semibold text-[var(--color-blue)]">
-                {day.condition}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="flex min-w-0 items-center gap-2 rounded-lg border border-white/65 bg-[var(--color-sky)] px-2.5 py-2 shadow-sm">
+      <CloudSun className="shrink-0 text-[var(--color-blue)]" size={22} />
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase leading-none text-[var(--color-muted)]">
+          Weather
+        </p>
+        <p className="mt-1 whitespace-nowrap text-sm font-bold leading-none">{label}</p>
+        <p className="mt-1 max-w-28 truncate text-[11px] font-semibold leading-none text-[var(--color-blue)]">
+          {detail}
+        </p>
+      </div>
     </div>
   );
 }
@@ -1033,55 +1101,6 @@ function CategoryDetail({
   );
 }
 
-function DateDetail({
-  activities,
-  date,
-  leg,
-  onClose,
-  onSelectActivity,
-}: {
-  activities: Activity[];
-  date: string;
-  leg: Leg | undefined;
-  onClose: () => void;
-  onSelectActivity: (activity: Activity) => void;
-}) {
-  return (
-    <Overlay onClose={onClose} closeLabel="Close date">
-      <p className="text-sm font-semibold text-[var(--color-muted)]">
-        {formatLongDate(date)}
-      </p>
-      <h2 className="mt-2 text-4xl font-semibold leading-tight">
-        {leg?.city ?? "Trip Day"}
-      </h2>
-
-      <div className="mt-6 space-y-3">
-        {activities.length > 0 ? (
-          activities.map((activity) => (
-            <button
-              key={activity.activity_id}
-              type="button"
-              className="w-full rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-left shadow-[var(--shadow-card)]"
-              onClick={() => onSelectActivity(activity)}
-            >
-              <span className="block text-sm font-semibold text-[var(--color-muted)]">
-                {activity.start_time ? formatTimeRange(activity) : "Anytime"}
-              </span>
-              <span className="mt-1 block text-lg font-semibold leading-snug">
-                {activity.title}
-              </span>
-            </button>
-          ))
-        ) : (
-          <p className="rounded-xl border border-white/60 bg-[var(--color-surface)] p-4 text-sm font-semibold text-[var(--color-muted)] shadow-[var(--shadow-card)]">
-            No plans on the sheet for this day.
-          </p>
-        )}
-      </div>
-    </Overlay>
-  );
-}
-
 function SearchDetail({
   activities,
   categoryById,
@@ -1559,13 +1578,31 @@ function getActiveDay(legs: Leg[], activities: Activity[]) {
       ? currentDate
       : currentLeg.arrive;
 
-  return {
+  return getTripDay(legs, activities, date) ?? {
     date,
     leg: currentLeg,
+    activities: [],
+  };
+}
+
+function getTripDay(legs: Leg[], activities: Activity[], date: string) {
+  const leg = getLegForDate(legs, date);
+
+  if (!leg) return null;
+
+  return {
+    date,
+    leg,
     activities: activities.filter(
-      (activity) => activity.date === date && activity.leg_id === currentLeg.leg_id,
+      (activity) => activity.date === date && activity.leg_id === leg.leg_id,
     ),
   };
+}
+
+function getTripDates(legs: Leg[]): string[] {
+  return Array.from(
+    new Set(legs.flatMap((leg) => getDateRange(leg.arrive, leg.leave))),
+  ).sort();
 }
 
 function getLegQueueStatus(
