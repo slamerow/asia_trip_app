@@ -1,6 +1,7 @@
 "use client";
 
 import type { Activity, Category, Leg, Phrase, TripData } from "@/lib/trip-data";
+import { getActiveDay, getLegForDate, getTripDates, getTripDay } from "@/lib/trip-days";
 import type { WeatherForecast } from "@/lib/weather";
 import { TripMap } from "@/components/trip-map";
 import { AnimatePresence, motion } from "framer-motion";
@@ -65,7 +66,10 @@ export function TripApp({
   );
 
   const defaultDay = useMemo(() => getActiveDay(data.legs, data.activities), [data]);
-  const tripDates = useMemo(() => getTripDates(data.legs), [data.legs]);
+  const tripDates = useMemo(
+    () => getTripDates(data.legs, data.activities),
+    [data.activities, data.legs],
+  );
   const [todayDate, setTodayDate] = useState(defaultDay.date);
   const activeDay = useMemo(
     () => getTripDay(data.legs, data.activities, todayDate) ?? defaultDay,
@@ -169,8 +173,8 @@ export function TripApp({
               activities={activeDay.activities}
               activeDate={activeDay.date}
               categoryById={categoryById}
+              cityLabel={activeDay.cityLabel}
               defaultDate={defaultDay.date}
-              leg={activeDay.leg}
               onSelectActivity={setSelectedActivity}
               onSelectDate={setTodayDate}
               tripDates={tripDates}
@@ -300,8 +304,8 @@ function TodayPanel({
   activities,
   activeDate,
   categoryById,
+  cityLabel,
   defaultDate,
-  leg,
   onSelectActivity,
   onSelectDate,
   tripDates,
@@ -309,8 +313,8 @@ function TodayPanel({
   activities: Activity[];
   activeDate: string;
   categoryById: Map<string, Category>;
+  cityLabel: string;
   defaultDate: string;
-  leg: Leg;
   onSelectActivity: (activity: Activity) => void;
   onSelectDate: (date: string) => void;
   tripDates: string[];
@@ -344,7 +348,7 @@ function TodayPanel({
               {formatLongDate(activeDate)}
             </p>
             <h2 className="mt-1 truncate text-4xl font-semibold leading-tight">
-              {leg.city}
+              {cityLabel}
             </h2>
           </div>
           <button
@@ -718,14 +722,10 @@ function CalendarPanel({
   onSelectDate: (date: string) => void;
   onSelectLeg: (leg: Leg) => void;
 }) {
-  const tripDates = useMemo(() => {
-    const start = legs[0]?.arrive;
-    const end = legs.at(-1)?.leave;
-
-    if (!start || !end) return [];
-
-    return getDateRange(start, end);
-  }, [legs]);
+  const tripDates = useMemo(
+    () => getTripDates(legs, activities),
+    [activities, legs],
+  );
   const months = useMemo(() => Array.from(new Set(tripDates.map((date) => date.slice(0, 7)))), [tripDates]);
   const [monthIndex, setMonthIndex] = useState(0);
   const activeMonth = months[monthIndex] ?? tripDates[0]?.slice(0, 7);
@@ -1666,50 +1666,6 @@ function getHeaderTitle(activeTab: TabId, leg: Leg): string {
   return "Calendar";
 }
 
-function getActiveDay(legs: Leg[], activities: Activity[]) {
-  const firstLeg = legs[0];
-
-  if (!firstLeg) {
-    throw new Error("No legs found in sheet.");
-  }
-
-  const currentDate = new Date().toISOString().slice(0, 10);
-  const currentLeg =
-    legs.find((leg) => currentDate >= leg.arrive && currentDate < leg.leave) ??
-    (currentDate < firstLeg.arrive ? firstLeg : legs.at(-1) ?? firstLeg);
-
-  const date =
-    currentDate >= currentLeg.arrive && currentDate < currentLeg.leave
-      ? currentDate
-      : currentLeg.arrive;
-
-  return getTripDay(legs, activities, date) ?? {
-    date,
-    leg: currentLeg,
-    activities: [],
-  };
-}
-
-function getTripDay(legs: Leg[], activities: Activity[], date: string) {
-  const leg = getLegForDate(legs, date);
-
-  if (!leg) return null;
-
-  return {
-    date,
-    leg,
-    activities: activities.filter(
-      (activity) => activity.date === date && activity.leg_id === leg.leg_id,
-    ),
-  };
-}
-
-function getTripDates(legs: Leg[]): string[] {
-  return Array.from(
-    new Set(legs.flatMap((leg) => getDateRange(leg.arrive, leg.leave))),
-  ).sort();
-}
-
 function getLegQueueStatus(
   legs: Leg[],
   index: number,
@@ -1865,10 +1821,6 @@ function buildCalendarRows(dates: string[], legs: Leg[]): CalendarSegment[][] {
   return rows;
 }
 
-function getLegForDate(legs: Leg[], date: string): Leg | undefined {
-  return legs.find((leg) => date >= leg.arrive && date < leg.leave);
-}
-
 function getTransitionFromLeg(
   legs: Leg[],
   date: string,
@@ -1954,19 +1906,6 @@ function formatSegmentTitle(dates: string[]): string {
   if (dates.length === 1) return formatLongDate(dates[0]);
 
   return `${formatLongDate(dates[0])} - ${formatLongDate(dates.at(-1) ?? dates[0])}`;
-}
-
-function getDateRange(start: string, endExclusive: string): string[] {
-  const dates: string[] = [];
-  const cursor = new Date(`${start}T00:00:00Z`);
-  const end = new Date(`${endExclusive}T00:00:00Z`);
-
-  while (cursor < end) {
-    dates.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  return dates;
 }
 
 function isEnglishLanguage(language: string): boolean {
