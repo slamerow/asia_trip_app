@@ -8,6 +8,7 @@ type LeafletModule = typeof import("leaflet");
 type MapStyle = "satellite" | "street";
 
 type TripMapProps = {
+  focusRequest: number;
   legs: Leg[];
   onSelectLeg: (legId: string) => void;
   selectedLegId: string;
@@ -44,7 +45,7 @@ const mapStyles: Record<
   },
 };
 
-export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
+export function TripMap({ focusRequest, legs, onSelectLeg, selectedLegId }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<LeafletModule | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -169,6 +170,17 @@ export function TripMap({ legs, onSelectLeg, selectedLegId }: TripMapProps) {
 
     map.fitBounds(leaflet.latLngBounds(points), { padding: [24, 24] });
   }, [defaultViewKey, defaultViewLegs, isReady, legKey]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const selectedLeg = mapLegs.find((leg) => leg.leg_id === selectedLegId);
+
+    if (!map || !isReady || !selectedLeg || focusRequest === 0) return;
+
+    map.setView([selectedLeg.latitude ?? 0, selectedLeg.longitude ?? 0], 8, {
+      animate: true,
+    });
+  }, [focusRequest, isReady, mapLegs, selectedLegId]);
 
   if (mapLegs.length === 0) {
     return (

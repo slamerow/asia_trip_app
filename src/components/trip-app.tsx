@@ -145,7 +145,13 @@ export function TripApp({
                 <p className="text-sm font-medium text-[var(--color-muted)]">
                   {formatLongDate(activeDay.date)}
                 </p>
-                <h1 className="mt-1 truncate text-4xl font-semibold tracking-normal">
+                <h1
+                  className={`mt-1 truncate font-semibold tracking-normal ${
+                    activeTab === "legs" || activeTab === "categories"
+                      ? "text-3xl"
+                      : "text-4xl"
+                  }`}
+                >
                   {title}
                 </h1>
               </div>
@@ -319,6 +325,8 @@ function TodayPanel({
   onSelectDate: (date: string) => void;
   tripDates: string[];
 }) {
+  const daySwipeStartX = useRef<number | null>(null);
+  const daySwipeStartY = useRef<number | null>(null);
   const activeIndex = tripDates.indexOf(activeDate);
   const canGoPrevious = activeIndex > 0;
   const canGoNext = activeIndex >= 0 && activeIndex < tripDates.length - 1;
@@ -343,7 +351,30 @@ function TodayPanel({
           >
             <ChevronLeft size={22} />
           </button>
-          <div className="min-w-0 text-center">
+          <div
+            className="min-w-0 flex-1 touch-pan-y text-center"
+            onTouchEnd={(event) => {
+              const startX = daySwipeStartX.current;
+              const startY = daySwipeStartY.current;
+              const touch = event.changedTouches[0];
+
+              if (startX !== null && startY !== null && touch) {
+                const distanceX = touch.clientX - startX;
+                const distanceY = touch.clientY - startY;
+
+                if (Math.abs(distanceX) > 48 && Math.abs(distanceX) > Math.abs(distanceY)) {
+                  moveDay(distanceX < 0 ? 1 : -1);
+                }
+              }
+
+              daySwipeStartX.current = null;
+              daySwipeStartY.current = null;
+            }}
+            onTouchStart={(event) => {
+              daySwipeStartX.current = event.touches[0]?.clientX ?? null;
+              daySwipeStartY.current = event.touches[0]?.clientY ?? null;
+            }}
+          >
             <p className="text-sm font-semibold text-[var(--color-muted)]">
               {formatLongDate(activeDate)}
             </p>
@@ -373,7 +404,7 @@ function TodayPanel({
       </div>
 
       <div className="-mx-5 flex flex-1 items-center">
-        <div className="flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth pb-5 pt-6">
+        <div className="hide-scrollbar flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth pb-5 pt-6">
           <div className="shrink-0 basis-[11%]" aria-hidden="true" />
           {activities.length > 0 ? (
             activities.map((activity) => (
@@ -559,17 +590,13 @@ function ActivityCard({
       className="mx-2 flex h-[235px] shrink-0 basis-[78%] snap-center flex-col items-center justify-center rounded-xl border border-white/70 bg-[var(--color-surface)] p-5 text-center shadow-[var(--shadow-card)] outline outline-1 outline-black/5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
       onClick={onSelect}
     >
-      {activity.start_time ? (
+      {activity.start_time && (
         <div className="flex items-center justify-center gap-2 text-sm font-medium text-[var(--color-muted)]">
           <Clock size={16} />
           <span>{formatTimeRange(activity)}</span>
         </div>
-      ) : (
-        <div className="text-sm font-medium text-[var(--color-muted)]">
-          Anytime
-        </div>
       )}
-      <div className="mt-5">
+      <div className={activity.start_time ? "mt-5" : ""}>
         <h2 className="line-clamp-4 text-3xl font-semibold leading-tight">
           {activity.title}
         </h2>
@@ -986,18 +1013,24 @@ function MapDetail({ legs, onClose }: { legs: Leg[]; onClose: () => void }) {
   );
   const mapLegs = mappedLegs;
   const [selectedLegId, setSelectedLegId] = useState(mapLegs[0]?.leg_id ?? "");
+  const [focusRequest, setFocusRequest] = useState(0);
   const selectedLeg =
     mapLegs.find((leg) => leg.leg_id === selectedLegId) ?? mapLegs[0];
+  const selectMapLeg = (legId: string) => {
+    setSelectedLegId(legId);
+    setFocusRequest((request) => request + 1);
+  };
 
   return (
-    <Overlay onClose={onClose} closeLabel="Close map">
+    <Overlay allowSwipeClose={false} onClose={onClose} closeLabel="Close map">
       <p className="text-sm font-semibold text-[var(--color-muted)]">Map</p>
       <h2 className="mt-2 text-4xl font-semibold leading-tight">Trip Pins</h2>
 
       <div className="relative mt-6 h-[520px] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
         <TripMap
+          focusRequest={focusRequest}
           legs={mapLegs}
-          onSelectLeg={setSelectedLegId}
+          onSelectLeg={selectMapLeg}
           selectedLegId={selectedLeg?.leg_id ?? ""}
         />
       </div>
@@ -1032,7 +1065,7 @@ function MapDetail({ legs, onClose }: { legs: Leg[]; onClose: () => void }) {
                 ? "border-[var(--color-leather)] bg-[var(--color-surface)]"
                 : "border-white/60 bg-[var(--color-surface)]/70"
             }`}
-            onClick={() => setSelectedLegId(leg.leg_id)}
+            onClick={() => selectMapLeg(leg.leg_id)}
           >
             <span className="block truncate text-sm font-semibold">{leg.city}</span>
             <span className="mt-1 block text-xs font-semibold text-[var(--color-muted)]">
@@ -1336,15 +1369,10 @@ function PhrasebookDetail({
   const defaultLanguage =
     groupedPhrases.find((group) => group.language === activeLanguage)?.language ??
     (isEnglishLanguage(activeLanguage) ? null : groupedPhrases[0]?.language ?? null);
-  const defaultCategory = defaultLanguage
-    ? getFirstPhraseCategoryKey(groupedPhrases, defaultLanguage)
-    : null;
   const [expandedLanguage, setExpandedLanguage] = useState<string | null>(
     defaultLanguage,
   );
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(
-    defaultCategory,
-  );
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [selectedPhrase, setSelectedPhrase] = useState<Phrase | null>(null);
 
   return (
@@ -1367,11 +1395,7 @@ function PhrasebookDetail({
                 className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/25"
                 onClick={() => {
                   setExpandedLanguage(isExpanded ? null : group.language);
-                  setExpandedCategory(
-                    isExpanded
-                      ? null
-                      : getFirstPhraseCategoryKey(groupedPhrases, group.language),
-                  );
+                  setExpandedCategory(null);
                 }}
               >
                 <span>
@@ -1532,17 +1556,6 @@ function PhraseCategoryGroup({
   );
 }
 
-function getFirstPhraseCategoryKey(
-  groups: PhraseLanguageGroup[],
-  language: string,
-): string | null {
-  const category = groups.find((group) => group.language === language)?.categories
-    .keys()
-    .next().value;
-
-  return category ? getPhraseCategoryKey(language, category) : null;
-}
-
 function getPhraseCategoryKey(language: string, category: string): string {
   return `${language}::${category}`;
 }
@@ -1603,10 +1616,12 @@ function CompactActivityRow({
 }
 
 function Overlay({
+  allowSwipeClose = true,
   children,
   closeLabel,
   onClose,
 }: {
+  allowSwipeClose?: boolean;
   children: React.ReactNode;
   closeLabel: string;
   onClose: () => void;
@@ -1630,14 +1645,22 @@ function Overlay({
           const startY = touchStartY.current;
           const touch = event.changedTouches[0];
 
-          if (startY !== null && touch && touch.clientY - startY > 68 && touchStartScrollTop.current < 8) {
+          if (
+            allowSwipeClose &&
+            startY !== null &&
+            touch &&
+            touch.clientY - startY > 68 &&
+            touchStartScrollTop.current < 8
+          ) {
             onClose();
           }
 
           touchStartY.current = null;
         }}
         onTouchStart={(event) => {
-          touchStartY.current = event.touches[0]?.clientY ?? null;
+          touchStartY.current = allowSwipeClose
+            ? event.touches[0]?.clientY ?? null
+            : null;
           touchStartScrollTop.current = event.currentTarget.scrollTop;
         }}
         exit={{ borderRadius: 22, opacity: 0, scale: 0.96, y: 60 }}
@@ -1917,7 +1940,9 @@ function isMapTransitStop(leg: Leg): boolean {
     .filter(Boolean)
     .map((value) => value.trim().toLowerCase());
 
-  return values.includes("cts");
+  return values.some(
+    (value) => value === "cts" || value.startsWith("cts-") || value.includes("sapporo"),
+  );
 }
 
 function getGoogleMapsUrl(leg: Leg): string {

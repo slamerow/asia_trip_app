@@ -82,6 +82,14 @@ button {
   font: inherit;
 }
 
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (hover: none) {
   button {
     cursor: default;
