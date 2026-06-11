@@ -49,7 +49,7 @@ export function getTripDay(
 
   return {
     activities: dayActivities,
-    cityLabel: dayLegs.map((leg) => leg.city).join(" - ") || primaryLeg.city,
+    cityLabel: dayLegs.map((leg) => leg.city).join(" / ") || primaryLeg.city,
     date,
     leg: primaryLeg,
     legs: dayLegs.length > 0 ? dayLegs : [primaryLeg],
