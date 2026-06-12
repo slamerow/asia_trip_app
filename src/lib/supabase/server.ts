@@ -1,0 +1,41 @@
+import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { getSupabasePublicConfig } from "@/lib/supabase/config";
+
+export async function createSupabaseServerClient() {
+  const config = getSupabasePublicConfig();
+
+  if (!config) return null;
+
+  const cookieStore = await cookies();
+
+  return createServerClient(config.url, config.key, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: (cookiesToSet) => {
+        try {
+          cookiesToSet.forEach(({ name, options, value }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Server Components cannot always write cookies; Route Handlers can.
+        }
+      },
+    },
+  });
+}
+
+export function createSupabaseAdminClient() {
+  const config = getSupabasePublicConfig();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!config || !serviceRoleKey) return null;
+
+  return createClient(config.url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
