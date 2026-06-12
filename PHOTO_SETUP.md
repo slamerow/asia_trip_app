@@ -10,7 +10,8 @@ photos entirely through the app at `/photos/upload`.
 - Supabase project URL
 - Supabase publishable key
 - Supabase service-role key
-- Comma-separated trip-member emails
+- Shared trip upload password
+- Long random session-signing secret
 
 Never expose the service-role key in browser code or a `NEXT_PUBLIC_*` variable.
 
@@ -36,27 +37,14 @@ Add these values to `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
-PHOTO_MEMBER_EMAILS=member-one@example.com,member-two@example.com
+PHOTO_UPLOAD_PASSWORD=...
+PHOTO_SESSION_SECRET=...
 ```
 
 ## Vercel environment
 
-Add the same four values to Production, Preview, and Development environments.
+Add the same five values to Production, Preview, and Development environments.
 Redeploy after saving them.
 
-## Supabase Auth URL
-
-The allowed redirect URL must include:
-
-```text
-https://YOUR_APP_DOMAIN/auth/confirm
-```
-
-For local testing, also allow:
-
-```text
-http://localhost:3000/auth/confirm
-```
-
-Members sign in once per browser with an emailed magic link. Refresh tokens keep
-the session active during normal use. Followers never sign in.
+Members enter the shared trip password once per browser. A signed, `HttpOnly`
+cookie keeps uploads unlocked for six months. Followers never sign in.

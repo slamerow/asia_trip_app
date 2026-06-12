@@ -11,7 +11,7 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export async function POST(request: Request) {
   const member = await getPhotoMember();
 
-  if (!member?.email) {
+  if (!member) {
     return NextResponse.json({ message: "Trip member sign-in required." }, { status: 401 });
   }
 
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       trip_date: tripDate,
       trip_id: PHOTO_TRIP_ID,
       uploaded_by: member.id,
-      uploader_email: member.email,
+      uploader_email: member.label,
       width,
     })
     .select("photo_id")

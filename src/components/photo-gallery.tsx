@@ -15,8 +15,8 @@ import { useEffect, useState } from "react";
 
 type MemberSession = {
   configured: boolean;
-  email: string | null;
   isMember: boolean;
+  label: string | null;
 };
 
 export function PhotoGallery({
@@ -41,7 +41,7 @@ export function PhotoGallery({
     fetch("/api/photos/session")
       .then((response) => response.json() as Promise<MemberSession>)
       .then(setSession)
-      .catch(() => setSession({ configured, email: null, isMember: false }));
+      .catch(() => setSession({ configured, isMember: false, label: null }));
   }, [configured]);
 
   return (

@@ -4,10 +4,19 @@ import { useEffect } from "react";
 
 export function OfflineSupport() {
   useEffect(() => {
-    if (
-      process.env.NODE_ENV !== "production" ||
-      !("serviceWorker" in navigator)
-    ) {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => registration.unregister());
+      });
+      caches.keys().then((cacheNames) => {
+        cacheNames
+          .filter((cacheName) => cacheName.startsWith("asia-trip-"))
+          .forEach((cacheName) => caches.delete(cacheName));
+      });
       return;
     }
 

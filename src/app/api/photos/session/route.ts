@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getPhotoMember } from "@/lib/photo-auth";
+import { getPhotoMember, isPhotoPasswordConfigured } from "@/lib/photo-auth";
 import { isPhotoFeatureConfigured } from "@/lib/supabase/config";
 
 export async function GET() {
   const member = await getPhotoMember();
 
   return NextResponse.json({
-    configured: isPhotoFeatureConfigured(),
-    email: member?.email ?? null,
+    configured: isPhotoFeatureConfigured() && isPhotoPasswordConfigured(),
     isMember: Boolean(member),
+    label: member?.label ?? null,
   });
 }

@@ -9,8 +9,8 @@ import { useEffect, useRef, useState } from "react";
 
 type MemberSession = {
   configured: boolean;
-  email: string | null;
   isMember: boolean;
+  label: string | null;
 };
 
 type ReviewPhoto = {
@@ -37,7 +37,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
     fetch("/api/photos/session")
       .then((response) => response.json() as Promise<MemberSession>)
       .then(setSession)
-      .catch(() => setSession({ configured, email: null, isMember: false }));
+      .catch(() => setSession({ configured, isMember: false, label: null }));
   }, [configured]);
 
   const chooseFiles = async (files: FileList | null) => {
@@ -100,7 +100,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
 
   if (!configured) return <UploadShell><SetupState /></UploadShell>;
   if (!session) return <UploadShell><LoadingState label="Checking member access" /></UploadShell>;
-  if (!session.isMember) return <UploadShell><MemberSignIn /></UploadShell>;
+  if (!session.isMember) return <UploadShell><PasswordSignIn /></UploadShell>;
 
   return (
     <UploadShell
@@ -109,8 +109,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
           aria-label="Sign out"
           className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-surface)] shadow-sm"
           onClick={async () => {
-            const { createSupabaseBrowserClient } = await import("@/lib/supabase/browser");
-            await createSupabaseBrowserClient()?.auth.signOut();
+            await fetch("/api/photos/logout", { method: "POST" });
             window.location.reload();
           }}
           type="button"
@@ -122,7 +121,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
       <div className="px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-[var(--color-muted)]">Signed in as {session.email}</p>
+            <p className="text-sm font-semibold text-[var(--color-muted)]">Uploads unlocked</p>
             <h2 className="mt-1 text-3xl font-semibold">Review photos</h2>
           </div>
           <button
@@ -275,31 +274,27 @@ function ReviewCard({
   );
 }
 
-function MemberSignIn() {
-  const [email, setEmail] = useState("");
+function PasswordSignIn() {
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
 
-  const sendLink = async () => {
+  const unlockUploads = async () => {
     setIsSending(true);
     setMessage(null);
-    const { createSupabaseBrowserClient } = await import("@/lib/supabase/browser");
-    const supabase = createSupabaseBrowserClient();
+    const response = await fetch("/api/photos/login", {
+      body: JSON.stringify({ password }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = (await response.json()) as { message?: string };
 
-    if (!supabase) {
-      setMessage("Photo access is not configured.");
-      setIsSending(false);
+    if (response.ok) {
+      window.location.reload();
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/photos/upload`,
-      },
-    });
-
-    setMessage(error ? error.message : "Check your email for the sign-in link.");
+    setMessage(result.message ?? "Uploads could not be unlocked.");
     setIsSending(false);
   };
 
@@ -307,24 +302,24 @@ function MemberSignIn() {
     <div className="flex min-h-[72dvh] flex-col items-center justify-center px-6 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-blue)]"><ImagePlus size={30} /></div>
       <h2 className="mt-5 text-3xl font-semibold">Trip member access</h2>
-      <p className="mt-3 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Followers can view photos freely. Trip members sign in by email to add or edit them.</p>
+      <p className="mt-3 max-w-sm text-sm leading-6 text-[var(--color-muted)]">Followers can view photos freely. Enter the shared trip password to add or edit them.</p>
       <label className="mt-6 block w-full max-w-sm text-left text-sm font-bold">
-        Email
+        Password
         <input
-          autoComplete="email"
+          autoComplete="current-password"
           className="mt-2 h-12 w-full rounded-lg border border-[var(--color-border)] bg-white/45 px-4 font-normal"
-          onChange={(event) => setEmail(event.target.value)}
-          type="email"
-          value={email}
+          onChange={(event) => setPassword(event.target.value)}
+          type="password"
+          value={password}
         />
       </label>
       <button
         className="mt-4 h-12 w-full max-w-sm rounded-lg bg-[var(--color-green)] font-bold text-white disabled:opacity-45"
-        disabled={!email || isSending}
-        onClick={sendLink}
+        disabled={!password || isSending}
+        onClick={unlockUploads}
         type="button"
       >
-        {isSending ? "Sending…" : "Email me a sign-in link"}
+        {isSending ? "Checking…" : "Unlock uploads"}
       </button>
       {message && <p className="mt-4 text-sm font-semibold text-[var(--color-muted)]">{message}</p>}
     </div>
@@ -376,9 +371,12 @@ async function prepareReviewPhoto(file: File, legs: Leg[]): Promise<ReviewPhoto>
   const tripDate = toLocalDate(captureDate);
   const latitude = asNumber(metadata.latitude);
   const longitude = asNumber(metadata.longitude);
-  const dateLeg = getLegForPhotoDate(legs, tripDate);
-  const gpsLeg = latitude !== null && longitude !== null ? getNearestLeg(legs, latitude, longitude) : undefined;
-  const suggestedLeg = dateLeg ?? gpsLeg ?? legs[0];
+  const dateLegs = getLegsForPhotoDate(legs, tripDate);
+  const gpsLeg =
+    latitude !== null && longitude !== null
+      ? getNearestLeg(dateLegs.length > 0 ? dateLegs : legs, latitude, longitude)
+      : undefined;
+  const suggestedLeg = gpsLeg ?? dateLegs.at(-1) ?? getLegForPhotoDate(legs, tripDate) ?? legs[0];
   const previewFile = await convertHeicIfNeeded(file);
 
   return {
@@ -389,9 +387,13 @@ async function prepareReviewPhoto(file: File, legs: Leg[]): Promise<ReviewPhoto>
     legId: suggestedLeg?.leg_id ?? "",
     previewUrl: URL.createObjectURL(previewFile),
     sourceLabel: metadataDate
-      ? gpsLeg
-        ? "Suggested from photo date and location"
-        : "Suggested from photo date"
+      ? dateLegs.length > 1
+        ? gpsLeg
+          ? "Transition day · suggested from photo date and location"
+          : "Transition day · please confirm the leg"
+        : gpsLeg
+          ? "Suggested from photo date and location"
+          : "Suggested from photo date"
       : "Date estimated from file · please confirm",
     status: "ready",
     statusMessage: null,
@@ -430,6 +432,10 @@ function getNearestLeg(legs: Leg[], latitude: number, longitude: number): Leg | 
     .filter((leg) => leg.latitude !== null && leg.longitude !== null)
     .map((leg) => ({ leg, distance: distanceSquared(latitude, longitude, leg.latitude ?? 0, leg.longitude ?? 0) }))
     .sort((a, b) => a.distance - b.distance)[0]?.leg;
+}
+
+function getLegsForPhotoDate(legs: Leg[], date: string): Leg[] {
+  return legs.filter((leg) => leg.leave === date || (date >= leg.arrive && date < leg.leave));
 }
 
 function distanceSquared(latA: number, lonA: number, latB: number, lonB: number): number {

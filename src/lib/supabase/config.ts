@@ -12,15 +12,3 @@ export function getSupabasePublicConfig(): { key: string; url: string } | null {
 
   return url && key ? { key, url } : null;
 }
-
-export function getPhotoMemberEmails(): string[] {
-  return (process.env.PHOTO_MEMBER_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isPhotoMemberEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return getPhotoMemberEmails().includes(email.trim().toLowerCase());
-}
