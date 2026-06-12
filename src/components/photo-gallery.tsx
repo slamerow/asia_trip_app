@@ -11,7 +11,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Camera, ChevronLeft, ChevronRight, Images, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type MemberSession = {
   configured: boolean;
@@ -141,14 +141,11 @@ function PhotoGrid({
   onSelect: (photoId: string) => void;
   photos: TripPhoto[];
 }) {
-  let previousLegId: string | null = null;
-
   return (
     <div>
-      {photos.map((photo) => {
+      {photos.map((photo, index) => {
         const leg = legs.find((item) => item.leg_id === photo.legId);
-        const showDivider = photo.legId !== previousLegId;
-        previousLegId = photo.legId;
+        const showDivider = photo.legId !== photos[index - 1]?.legId;
 
         return (
           <div key={photo.photoId}>
@@ -167,6 +164,8 @@ function PhotoGrid({
               className="block w-full bg-stone-900"
               onClick={() => onSelect(photo.photoId)}
             >
+              {/* Images are already resized and compressed before upload. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt={getPhotoAlt(photo, legs)}
                 className="block max-h-[72vh] w-full object-cover"
@@ -227,6 +226,7 @@ function PhotoViewer({
         )}
       </div>
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           alt={getPhotoAlt(photo, legs)}
           className="max-h-full max-w-full object-contain"

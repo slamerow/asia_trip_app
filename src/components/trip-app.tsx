@@ -12,6 +12,7 @@ import {
   Clock,
   CloudSun,
   ExternalLink,
+  Images,
   Map as MapIcon,
   MapPin,
   Languages,
@@ -157,6 +158,17 @@ export function TripApp({
               </div>
             )}
             <div className="flex shrink-0 gap-2">
+              <IconButton
+                label="Photos"
+                onClick={() => {
+                  window.location.href =
+                    activeTab === "today"
+                      ? `/photos?date=${encodeURIComponent(activeDay.date)}`
+                      : "/photos";
+                }}
+              >
+                <Images size={19} />
+              </IconButton>
               <IconButton label="Stay" onClick={() => setIsStayOpen(true)}>
                 <MapPin size={19} />
               </IconButton>
@@ -247,6 +259,9 @@ export function TripApp({
               activities={data.activities.filter((activity) => activity.leg_id === selectedLeg.leg_id)}
               leg={selectedLeg}
               onClose={() => setSelectedLeg(null)}
+              onOpenPhotos={() => {
+                window.location.href = `/photos?leg=${encodeURIComponent(selectedLeg.leg_id)}`;
+              }}
               onSelectActivity={(activity) => {
                 setSelectedLeg(null);
                 setSelectedActivity(activity);
@@ -1110,11 +1125,13 @@ function LegDetail({
   activities,
   leg,
   onClose,
+  onOpenPhotos,
   onSelectActivity,
 }: {
   activities: Activity[];
   leg: Leg;
   onClose: () => void;
+  onOpenPhotos: () => void;
   onSelectActivity: (activity: Activity) => void;
 }) {
   const [isStayOpen, setIsStayOpen] = useState(false);
@@ -1130,6 +1147,15 @@ function LegDetail({
         {leg.country}
       </p>
       <p className="mt-5 text-base leading-7">{leg.why}</p>
+
+      <button
+        type="button"
+        className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-green)] px-4 text-sm font-bold text-white shadow-lg shadow-emerald-950/20"
+        onClick={onOpenPhotos}
+      >
+        <Images size={17} />
+        Photos from {leg.city}
+      </button>
 
       <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-card)]">
         <button
