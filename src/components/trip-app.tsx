@@ -1903,6 +1903,24 @@ function getCountryColor(country: string): {
     },
   ];
   const normalizedCountry = country.trim().toLowerCase();
+  const countryColorIndex: Record<string, number> = {
+    us: 0,
+    japan: 1,
+    korea: 2,
+    taiwan: 3,
+    thailand: 4,
+    laos: 5,
+    vietnam: 0,
+    cambodia: 1,
+    singapore: 2,
+    indonesia: 3,
+    "sri lanka": 4,
+    maldives: 5,
+  };
+  const assignedIndex = countryColorIndex[normalizedCountry];
+
+  if (assignedIndex !== undefined) return colors[assignedIndex];
+
   const hash = Array.from(normalizedCountry).reduce(
     (sum, character) => sum + character.charCodeAt(0),
     0,
