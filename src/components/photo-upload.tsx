@@ -40,10 +40,6 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
       .catch(() => setSession({ configured, email: null, isMember: false }));
   }, [configured]);
 
-  useEffect(() => {
-    return () => photos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
-  }, [photos]);
-
   const chooseFiles = async (files: FileList | null) => {
     if (!files?.length) return;
 

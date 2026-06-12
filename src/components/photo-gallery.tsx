@@ -348,7 +348,14 @@ function PhotoEditor({
           Date
           <input
             className="mt-2 h-11 w-full rounded-lg border border-[var(--color-border)] bg-white/45 px-3"
-            onChange={(event) => setTripDate(event.target.value)}
+            onChange={(event) => {
+              const nextDate = event.target.value;
+              const suggestedLeg = legs.find(
+                (leg) => nextDate >= leg.arrive && nextDate < leg.leave,
+              );
+              setTripDate(nextDate);
+              if (suggestedLeg) setLegId(suggestedLeg.leg_id);
+            }}
             type="date"
             value={tripDate}
           />
