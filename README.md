@@ -39,6 +39,9 @@ spreadsheet data integrity, and recoverable photo deletion.
 Photo-password login is throttled after repeated failures. The current limiter is intentionally
 small and dependency-free; a future multi-instance platform should replace its in-memory store
 with a shared Redis-compatible backend.
+
+Production responses include baseline browser security headers for HTTPS enforcement, framing,
+MIME sniffing, referrer privacy, cross-origin isolation, and unnecessary browser permissions.
 CI always runs lint, type checking, and tests. It also runs the production build when the four
 `SHEET_*_URL` repository secrets are configured; Vercel independently builds every deployment.
 
