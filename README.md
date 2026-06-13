@@ -22,6 +22,21 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 Photo gallery deployment is documented in [PHOTO_SETUP.md](./PHOTO_SETUP.md).
 
+## Quality checks
+
+Run the full release checks before pushing changes:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+Tests currently protect trip-date and split-day resolution plus signed photo-session behavior.
+CI always runs lint, type checking, and tests. It also runs the production build when the four
+`SHEET_*_URL` repository secrets are configured; Vercel independently builds every deployment.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

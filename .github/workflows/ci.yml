@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      SHEET_ACTIVITIES_URL: ${{ secrets.SHEET_ACTIVITIES_URL }}
+      SHEET_CATEGORIES_URL: ${{ secrets.SHEET_CATEGORIES_URL }}
+      SHEET_LEGS_URL: ${{ secrets.SHEET_LEGS_URL }}
+      SHEET_PHRASES_URL: ${{ secrets.SHEET_PHRASES_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build when trip data secrets are configured
+        if: ${{ env.SHEET_ACTIVITIES_URL != '' && env.SHEET_CATEGORIES_URL != '' && env.SHEET_LEGS_URL != '' && env.SHEET_PHRASES_URL != '' }}
+        run: npm run build
