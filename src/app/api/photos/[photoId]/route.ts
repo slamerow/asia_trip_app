@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPhotoMember } from "@/lib/photo-auth";
+import { deletePhotoSafely } from "@/lib/photo-delete";
 import { PHOTO_BUCKET, PHOTO_CAPTION_LIMIT, PHOTO_TRIP_ID } from "@/lib/photos";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getTripData } from "@/lib/trip-data";
@@ -62,16 +63,31 @@ export async function DELETE(_request: Request, { params }: RouteProps) {
 
   if (findError || !photo) return NextResponse.json({ message: "Photo not found." }, { status: 404 });
 
-  const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove([photo.storage_path]);
+  const result = await deletePhotoSafely({
+    deleteFile: async () => {
+      const { error } = await supabase.storage.from(PHOTO_BUCKET).remove([photo.storage_path]);
+      return !error;
+    },
+    deleteRecord: async () => {
+      const { error } = await supabase
+        .from("trip_photos")
+        .delete()
+        .eq("trip_id", PHOTO_TRIP_ID)
+        .eq("photo_id", photoId);
+      return !error;
+    },
+  });
 
-  if (storageError) return NextResponse.json({ message: "Photo file could not be deleted." }, { status: 502 });
+  if (result.status === "record_delete_failed") {
+    return NextResponse.json({ message: "Photo record could not be deleted." }, { status: 502 });
+  }
 
-  const { error: deleteError } = await supabase
-    .from("trip_photos")
-    .delete()
-    .eq("trip_id", PHOTO_TRIP_ID)
-    .eq("photo_id", photoId);
+  if (result.status === "deleted_with_orphaned_file") {
+    console.error("Photo record deleted but storage cleanup failed", {
+      photoId,
+      storagePath: photo.storage_path,
+    });
+  }
 
-  if (deleteError) return NextResponse.json({ message: "Photo record could not be deleted." }, { status: 502 });
   return NextResponse.json({ ok: true });
 }
