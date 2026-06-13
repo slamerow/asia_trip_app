@@ -33,7 +33,8 @@ npm test
 npm run build
 ```
 
-Tests currently protect trip-date and split-day resolution plus signed photo-session behavior.
+Tests currently protect trip-date and split-day resolution, signed photo-session behavior, and
+spreadsheet data integrity.
 CI always runs lint, type checking, and tests. It also runs the production build when the four
 `SHEET_*_URL` repository secrets are configured; Vercel independently builds every deployment.
 

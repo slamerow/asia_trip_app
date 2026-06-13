@@ -1,4 +1,5 @@
 import Papa from "papaparse";
+import { normalizeTripData, validateTripData } from "@/lib/trip-data-validation";
 
 export type Leg = {
   leg_id: string;
@@ -73,7 +74,7 @@ export async function getTripData(): Promise<TripData> {
     fetchCsv("phrases", sheetUrls.phrases, normalizePhrase),
   ]);
 
-  return { legs, activities, categories, phrases };
+  return validateTripData(normalizeTripData({ legs, activities, categories, phrases }));
 }
 
 async function fetchCsv<T>(
