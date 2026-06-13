@@ -261,7 +261,7 @@ export function TripApp({
               onClose={() => setSelectedActivity(null)}
             />
           )}
-          {selectedLeg && (
+          {selectedLeg && !selectedActivity && (
             <LegDetail
               activities={data.activities.filter((activity) => activity.leg_id === selectedLeg.leg_id)}
               leg={selectedLeg}
@@ -270,7 +270,6 @@ export function TripApp({
                 window.location.href = `/photos?leg=${encodeURIComponent(selectedLeg.leg_id)}`;
               }}
               onSelectActivity={(activity) => {
-                setSelectedLeg(null);
                 setSelectedActivity(activity);
               }}
             />
