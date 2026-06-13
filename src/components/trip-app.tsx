@@ -133,8 +133,8 @@ export function TripApp({
   return (
     <main className="journal-page min-h-screen bg-[var(--color-page)] text-[var(--color-ink)]">
       <div className="journal-app mx-auto flex min-h-screen w-full max-w-[440px] flex-col border-x border-black/10 bg-[var(--color-app)] shadow-2xl shadow-stone-950/25">
-        <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-app)]/95 px-5 pb-4 pt-5 backdrop-blur">
-          <div className="flex items-start justify-between gap-4">
+        <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-app)]/95 px-4 pb-4 pt-5 backdrop-blur min-[400px]:px-5">
+          <div className="flex items-start justify-between gap-2 min-[400px]:gap-3">
             {activeTab === "today" ? (
               <MiniWeatherSummary
                 isLoading={isWeatherLoading}
@@ -157,7 +157,7 @@ export function TripApp({
                 </h1>
               </div>
             )}
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 gap-1 min-[400px]:gap-1.5">
               <IconButton
                 label="Photos"
                 onClick={() => {
@@ -466,10 +466,10 @@ function MiniWeatherSummary({
     <button
       type="button"
       aria-label="Weather details"
-      className="flex min-w-0 items-center gap-2 rounded-lg border border-white/65 bg-[var(--color-sky)] px-2.5 py-2 text-left shadow-sm transition hover:-translate-y-0.5"
+      className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-white/65 bg-[var(--color-sky)] px-2 py-2 text-left shadow-sm transition hover:-translate-y-0.5 min-[400px]:gap-2 min-[400px]:px-2.5"
       onClick={onClick}
     >
-      <CloudSun className="shrink-0 text-[var(--color-blue)]" size={22} />
+      <CloudSun className="shrink-0 text-[var(--color-blue)]" size={20} />
       <div className="min-w-0">
         <p className="text-[10px] font-bold uppercase leading-none text-[var(--color-muted)]">
           Weather
@@ -911,7 +911,7 @@ function IconButton({
       type="button"
       aria-label={label}
       title={label}
-      className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/70 bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm shadow-stone-950/10"
+      className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/70 bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm shadow-stone-950/10 min-[400px]:h-10 min-[400px]:w-10"
       onClick={onClick}
     >
       {children}
