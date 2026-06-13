@@ -1,4 +1,4 @@
-const CACHE_VERSION = "asia-trip-v3";
+const CACHE_VERSION = "asia-trip-v4";
 const APP_SHELL_CACHE = `${CACHE_VERSION}-app-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL_URLS = ["/", "/favicon.ico", "/manifest.webmanifest"];
@@ -34,6 +34,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Authentication and live data must never be served from a stale cache.
+  if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request));

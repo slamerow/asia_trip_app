@@ -38,7 +38,7 @@ export function PhotoGallery({
   const title = getGalleryTitle(filter, legs);
 
   useEffect(() => {
-    fetch("/api/photos/session")
+    fetch("/api/photos/session", { method: "POST" })
       .then((response) => response.json() as Promise<MemberSession>)
       .then(setSession)
       .catch(() => setSession({ configured, isMember: false, label: null }));

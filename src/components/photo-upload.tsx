@@ -34,7 +34,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
   const pendingCount = photos.filter((photo) => ["ready", "failed"].includes(photo.status)).length;
 
   useEffect(() => {
-    fetch("/api/photos/session")
+    fetch("/api/photos/session", { method: "POST" })
       .then((response) => response.json() as Promise<MemberSession>)
       .then(setSession)
       .catch(() => setSession({ configured, isMember: false, label: null }));

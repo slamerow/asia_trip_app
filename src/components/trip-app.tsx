@@ -469,7 +469,7 @@ function MiniWeatherSummary({
       className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-white/65 bg-[var(--color-sky)] px-2 py-2 text-left shadow-sm transition hover:-translate-y-0.5 min-[400px]:gap-2 min-[400px]:px-2.5"
       onClick={onClick}
     >
-      <CloudSun className="shrink-0 text-[var(--color-blue)]" size={20} />
+      <CloudSun className="shrink-0 text-[var(--color-blue)]" size={22} />
       <div className="min-w-0">
         <p className="text-[10px] font-bold uppercase leading-none text-[var(--color-muted)]">
           Weather
@@ -911,7 +911,7 @@ function IconButton({
       type="button"
       aria-label={label}
       title={label}
-      className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/70 bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm shadow-stone-950/10 min-[400px]:h-10 min-[400px]:w-10"
+      className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/70 bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm shadow-stone-950/10"
       onClick={onClick}
     >
       {children}

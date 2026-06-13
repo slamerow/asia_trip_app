@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getPhotoMember, isPhotoPasswordConfigured } from "@/lib/photo-auth";
 import { isPhotoFeatureConfigured } from "@/lib/supabase/config";
 
-export async function GET() {
+async function getSession() {
   const member = await getPhotoMember();
 
   return NextResponse.json({
@@ -11,3 +11,6 @@ export async function GET() {
     label: member?.label ?? null,
   });
 }
+
+export const GET = getSession;
+export const POST = getSession;
