@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     background_color: "#fff4df",
-    description: "Mobile itinerary for Eli and Tina's Asia sabbatical.",
+    description: "Follow Wren's adventure across Asia.",
     display: "standalone",
     icons: [
       {
@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/x-icon",
       },
     ],
-    name: "Asia Trip App",
-    short_name: "Asia Trip",
+    name: "Wren's Adventure",
+    short_name: "Wren's Adventure",
     start_url: "/",
     theme_color: "#1f3f2d",
   };

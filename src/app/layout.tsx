@@ -6,10 +6,11 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Asia Trip",
+    title: "Wren's Adventure",
   },
-  title: "Asia Trip App",
-  description: "Mobile itinerary for Eli and Tina's Asia sabbatical.",
+  applicationName: "Wren's Adventure",
+  title: "Wren's Adventure",
+  description: "Follow Wren's adventure across Asia.",
   manifest: "/manifest.webmanifest",
 };
 

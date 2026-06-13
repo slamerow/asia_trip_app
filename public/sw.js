@@ -1,4 +1,4 @@
-const CACHE_VERSION = "asia-trip-v4";
+const CACHE_VERSION = "wrens-adventure-v5";
 const APP_SHELL_CACHE = `${CACHE_VERSION}-app-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL_URLS = ["/", "/favicon.ico", "/manifest.webmanifest"];
@@ -69,7 +69,7 @@ async function networkFirst(request) {
     return (
       (await cache.match(request)) ??
       (await cache.match("/")) ??
-      new Response("Asia Trip App is offline.", {
+      new Response("Wren's Adventure is offline.", {
         headers: { "Content-Type": "text/plain; charset=utf-8" },
         status: 503,
       })
