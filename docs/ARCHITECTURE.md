@@ -102,6 +102,7 @@ Changing service-worker caching behavior requires a cache-version bump in `publi
 - Supabase migrations are committed under `supabase/migrations/`.
 - Spreadsheet data remains an external production dependency.
 - Vercel deployment history provides application rollback.
+- `/api/health` returns `200` only when current sheet data can be loaded and validated.
 
 There is currently no automated last-known-good spreadsheet snapshot, centralized error tracker,
 or orphaned-file cleanup job. These are deliberate next-stage reliability improvements.

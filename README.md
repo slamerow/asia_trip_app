@@ -122,10 +122,12 @@ should use individual accounts, roles, audit logs, and a shared Redis-backed rat
 - Supabase migration: `supabase/migrations/`
 - PWA caching: `public/sw.js`
 - Browser security headers: `next.config.ts`
+- Dependency-aware health check: `/api/health`
 
 ## Known Technical Debt
 
 - `trip-app.tsx` is large and should be decomposed by feature before multiple engineers edit it.
 - Login throttling is instance-local rather than shared across all server instances.
 - Monitoring and structured error reporting are not yet configured.
+- The health endpoint exists, but no external uptime monitor is connected yet.
 - Browser-level end-to-end tests are still needed for critical mobile flows.
