@@ -9,9 +9,9 @@ import {
   type TripPhoto,
 } from "@/lib/photos";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Camera, ChevronLeft, ChevronRight, Images, Pencil, Trash2, X } from "lucide-react";
+import { ArrowLeft, Camera, ChevronLeft, ChevronRight, Images, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type MemberSession = {
   configured: boolean;
@@ -23,19 +23,30 @@ export function PhotoGallery({
   configured,
   filter,
   legs,
+  loadStatus,
+  loadStatusMessage,
   photos: initialPhotos,
 }: {
   configured: boolean;
   filter: PhotoFilter;
   legs: Leg[];
+  loadStatus: "ready" | "unavailable";
+  loadStatusMessage: string | null;
   photos: TripPhoto[];
 }) {
   const [photos, setPhotos] = useState(initialPhotos);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "unavailable">(
+    loadStatus === "ready" ? "ready" : "loading",
+  );
+  const [statusMessage, setStatusMessage] = useState(loadStatusMessage);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [session, setSession] = useState<MemberSession | null>(null);
   const selectedIndex = photos.findIndex((photo) => photo.photoId === selectedId);
   const selectedPhoto = selectedIndex >= 0 ? photos[selectedIndex] : null;
   const title = getGalleryTitle(filter, legs);
+  const filterKey = getPhotoFilterKey(filter);
+  const photosApiUrl = getPhotosApiUrl(filter);
+  const photoSections = useMemo(() => groupPhotosByDate(photos), [photos]);
 
   useEffect(() => {
     fetch("/api/photos/session", { method: "POST" })
@@ -43,6 +54,76 @@ export function PhotoGallery({
       .then(setSession)
       .catch(() => setSession({ configured, isMember: false, label: null }));
   }, [configured]);
+
+  useEffect(() => {
+    if (!configured || initialPhotos.length > 0) return;
+
+    const cachedPhotos = readCachedPhotos(filterKey);
+    let isCancelled = false;
+
+    if (cachedPhotos.length > 0) {
+      window.setTimeout(() => {
+        if (!isCancelled) setPhotos(cachedPhotos);
+      }, 0);
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [configured, filterKey, initialPhotos.length]);
+
+  useEffect(() => {
+    if (!configured || photos.length === 0) return;
+
+    writeCachedPhotos(filterKey, photos);
+  }, [configured, filterKey, photos]);
+
+  useEffect(() => {
+    if (!configured) return;
+
+    let isCancelled = false;
+    const retryDelays = loadStatus === "ready" ? [0] : [0, 700, 1500, 3000, 5000, 8000];
+
+    async function refreshPhotos() {
+      for (const delay of retryDelays) {
+        if (delay > 0) await wait(delay);
+        if (isCancelled) return;
+
+        try {
+          const response = await fetch(photosApiUrl, { cache: "no-store" });
+          const result = (await response.json()) as {
+            message?: string;
+            photos?: TripPhoto[];
+            status?: "ready" | "unavailable";
+          };
+
+          if (response.ok && result.status === "ready" && Array.isArray(result.photos)) {
+            if (!isCancelled) {
+              setPhotos(result.photos);
+              setLoadState("ready");
+              setStatusMessage(null);
+            }
+            return;
+          }
+
+          if (result.message) setStatusMessage(result.message);
+        } catch {
+          setStatusMessage("Photos are still loading.");
+        }
+      }
+
+      if (!isCancelled) {
+        setLoadState("unavailable");
+        setStatusMessage((message) => message ?? "Photos are taking a minute.");
+      }
+    }
+
+    void refreshPhotos();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [configured, loadStatus, photosApiUrl]);
 
   return (
     <main className="journal-page min-h-screen bg-[var(--color-page)] text-[var(--color-ink)]">
@@ -87,14 +168,29 @@ export function PhotoGallery({
             detail="The screens are built. Storage will appear here once the photo service is connected."
           />
         ) : photos.length === 0 ? (
-          <GalleryMessage
-            icon={<Camera size={30} />}
-            title="No photos here yet"
-            detail="Trip photos will appear as they are published."
-          />
+          loadState === "loading" ? (
+            <GalleryMessage
+              icon={<LoaderCircle className="animate-spin" size={30} />}
+              title="Loading photos"
+              detail={statusMessage ?? ""}
+            />
+          ) : loadState === "unavailable" ? (
+            <GalleryMessage
+              icon={<Images size={30} />}
+              title="Photos are taking a minute"
+              detail={statusMessage ?? ""}
+              retry
+            />
+          ) : (
+            <GalleryMessage
+              icon={<Camera size={30} />}
+              title="No photos yet"
+              detail=""
+            />
+          )
         ) : (
           <div className="pb-[calc(2rem+env(safe-area-inset-bottom))]">
-            <PhotoGrid legs={legs} photos={photos} onSelect={setSelectedId} />
+            <PhotoGrid legs={legs} sections={photoSections} onSelect={setSelectedId} />
           </div>
         )}
 
@@ -135,49 +231,44 @@ export function PhotoGallery({
 function PhotoGrid({
   legs,
   onSelect,
-  photos,
+  sections,
 }: {
   legs: Leg[];
   onSelect: (photoId: string) => void;
-  photos: TripPhoto[];
+  sections: PhotoSection[];
 }) {
   return (
-    <div>
-      {photos.map((photo, index) => {
-        const leg = legs.find((item) => item.leg_id === photo.legId);
-        const showDivider = photo.legId !== photos[index - 1]?.legId;
-
-        return (
-          <div key={photo.photoId}>
-            {showDivider && leg && (
-              <div className="border-b border-[var(--color-border)]/25 px-5 pb-3 pt-7">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-leather)]">
-                  {leg.city} · {leg.country}
-                </p>
-                <p className="mt-1 text-xs font-semibold text-[var(--color-muted)]">
-                  {formatLegDates(leg)}
-                </p>
-              </div>
-            )}
-            <button
-              type="button"
-              className="block w-full bg-stone-900"
-              onClick={() => onSelect(photo.photoId)}
-            >
-              {/* Images are already resized and compressed before upload. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt={getPhotoAlt(photo, legs)}
-                className="block max-h-[72vh] w-full object-cover"
-                height={photo.height}
-                loading="lazy"
-                src={photo.url}
-                width={photo.width}
-              />
-            </button>
+    <div className="px-1 pb-3">
+      {sections.map((section) => (
+        <section key={section.date} className="pt-5 first:pt-3">
+          <div className="px-3 pb-2">
+            <h2 className="text-base font-semibold">{formatPhotoDate(section.date)}</h2>
+            <p className="mt-0.5 text-xs font-semibold text-[var(--color-muted)]">
+              {getSectionPlaces(section.photos.map((item) => item.photo), legs)}
+            </p>
           </div>
-        );
-      })}
+          <div className="grid grid-cols-3 gap-0.5">
+            {section.photos.map(({ index, photo }) => (
+              <button
+                key={photo.photoId}
+                type="button"
+                className="aspect-square w-full overflow-hidden bg-stone-200"
+                onClick={() => onSelect(photo.photoId)}
+              >
+                <RetryingImage
+                  alt={getPhotoAlt(photo, legs)}
+                  className="block h-full w-full object-cover"
+                  decoding="async"
+                  height={photo.height}
+                  loading={index < 9 ? "eager" : "lazy"}
+                  src={photo.url}
+                  width={photo.width}
+                />
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -226,8 +317,8 @@ function PhotoViewer({
         )}
       </div>
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <RetryingImage
+          key={photo.photoId}
           alt={getPhotoAlt(photo, legs)}
           className="max-h-full max-w-full object-contain"
           height={photo.height}
@@ -406,15 +497,93 @@ function PhotoEditor({
   );
 }
 
-function GalleryMessage({ detail, icon, title }: { detail: string; icon: React.ReactNode; title: string }) {
+function GalleryMessage({
+  detail,
+  icon,
+  retry = false,
+  title,
+}: {
+  detail: string;
+  icon: React.ReactNode;
+  retry?: boolean;
+  title: string;
+}) {
   return (
     <div className="flex min-h-[70dvh] flex-col items-center justify-center px-8 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-blue)]">
         {icon}
       </div>
       <h2 className="mt-5 text-2xl font-semibold">{title}</h2>
-      <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">{detail}</p>
+      {detail && <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-muted)]">{detail}</p>}
+      {retry && (
+        <button
+          className="mt-5 h-11 rounded-lg bg-[var(--color-green)] px-5 text-sm font-bold text-white shadow-sm"
+          onClick={() => window.location.reload()}
+          type="button"
+        >
+          Retry
+        </button>
+      )}
     </div>
+  );
+}
+
+function RetryingImage({
+  alt,
+  className,
+  decoding,
+  height,
+  loading,
+  src,
+  width,
+}: {
+  alt: string;
+  className: string;
+  decoding?: "async";
+  height: number;
+  loading?: "eager" | "lazy";
+  src: string;
+  width: number;
+}) {
+  const [retry, setRetry] = useState(0);
+  const [hasFailed, setHasFailed] = useState(false);
+
+  if (hasFailed) {
+    return (
+      <div
+        aria-label={alt}
+        className={`${className} flex items-center justify-center bg-stone-800 p-3 text-center text-xs font-semibold text-white/70`}
+        role="img"
+      >
+        Photo unavailable
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Images are already resized and compressed before upload. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        alt={alt}
+        className={className}
+        decoding={decoding}
+        height={height}
+        loading={loading}
+        onError={() => {
+          if (retry >= 2) {
+            setHasFailed(true);
+            return;
+          }
+
+          window.setTimeout(() => {
+            setRetry((current) => Math.min(current + 1, 2));
+          }, 400 * (retry + 1));
+        }}
+        src={retry === 0 ? src : addRetryParam(src, retry)}
+        width={width}
+      />
+    </>
   );
 }
 
@@ -424,6 +593,82 @@ function getGalleryTitle(filter: PhotoFilter, legs: Leg[]): string {
   return "All Photos";
 }
 
-function formatLegDates(leg: Leg): string {
-  return `${formatPhotoDate(leg.arrive)} – ${formatPhotoDate(leg.leave)}`;
+type PhotoSection = {
+  date: string;
+  photos: Array<{
+    index: number;
+    photo: TripPhoto;
+  }>;
+};
+
+function groupPhotosByDate(photos: TripPhoto[]): PhotoSection[] {
+  const sections = new Map<string, PhotoSection["photos"]>();
+
+  photos.forEach((photo, index) => {
+    sections.set(photo.tripDate, [...(sections.get(photo.tripDate) ?? []), { index, photo }]);
+  });
+
+  return Array.from(sections.entries()).map(([date, sectionPhotos]) => ({
+    date,
+    photos: sectionPhotos,
+  }));
+}
+
+function getSectionPlaces(photos: TripPhoto[], legs: Leg[]): string {
+  const places = Array.from(
+    new Set(
+      photos
+        .map((photo) => legs.find((leg) => leg.leg_id === photo.legId)?.city)
+        .filter(Boolean),
+    ),
+  );
+
+  return places.slice(0, 2).join(" / ");
+}
+
+function getPhotosApiUrl(filter: PhotoFilter): string {
+  const params = new URLSearchParams();
+  if (filter.date) params.set("date", filter.date);
+  if (filter.legId) params.set("leg", filter.legId);
+
+  const query = params.toString();
+  return query ? `/api/photos?${query}` : "/api/photos";
+}
+
+function getPhotoFilterKey(filter: PhotoFilter): string {
+  return `${filter.date ?? "all"}:${filter.legId ?? "all"}`;
+}
+
+function readCachedPhotos(filterKey: string): TripPhoto[] {
+  try {
+    const cached = window.localStorage.getItem(getPhotoCacheKey(filterKey));
+    const photos = cached ? (JSON.parse(cached) as unknown) : null;
+
+    return Array.isArray(photos) ? (photos as TripPhoto[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedPhotos(filterKey: string, photos: TripPhoto[]) {
+  try {
+    window.localStorage.setItem(getPhotoCacheKey(filterKey), JSON.stringify(photos));
+  } catch {
+    // Best-effort cache for transient read failures.
+  }
+}
+
+function getPhotoCacheKey(filterKey: string): string {
+  return `wrens-gallery:${filterKey}`;
+}
+
+function addRetryParam(src: string, retry: number): string {
+  const separator = src.includes("?") ? "&" : "?";
+  return `${src}${separator}retry=${retry}`;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
 }

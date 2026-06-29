@@ -1,12 +1,29 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getPhotoMember } from "@/lib/photo-auth";
+import { getPublishedPhotosResult } from "@/lib/photo-data";
 import { PHOTO_BUCKET, PHOTO_CAPTION_LIMIT, PHOTO_TRIP_ID } from "@/lib/photos";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getTripData } from "@/lib/trip-data";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const date = searchParams.get("date");
+  const leg = searchParams.get("leg");
+  const filter = {
+    date: /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? date ?? undefined : undefined,
+    legId: /^[a-z0-9-]+$/.test(leg ?? "") ? leg ?? undefined : undefined,
+  };
+  const result = await getPublishedPhotosResult(filter);
+
+  return NextResponse.json(result, {
+    headers: { "Cache-Control": "no-store" },
+    status: result.status === "ready" ? 200 : 503,
+  });
+}
 
 export async function POST(request: Request) {
   const member = await getPhotoMember();
