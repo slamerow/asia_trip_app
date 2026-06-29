@@ -59,6 +59,24 @@ describe("validateTripData", () => {
       "Leg tokyo has an invalid longitude.",
     ]);
   });
+
+  it("rejects invalid time zones before they can affect today's default", () => {
+    const data = makeTripData();
+    data.legs[0] = { ...data.legs[0], timezone: "Tokyo Standard Time" };
+
+    expectValidationIssues(data, [
+      "Leg tokyo has an invalid timezone: Tokyo Standard Time.",
+    ]);
+  });
+
+  it("rejects non-web activity links", () => {
+    const data = makeTripData();
+    data.activities[0] = { ...data.activities[0], url: "javascript:alert(1)" };
+
+    expectValidationIssues(data, [
+      "Activity dinner has an invalid URL: javascript:alert(1).",
+    ]);
+  });
 });
 
 function expectValidationIssues(data: TripData, expected: string[]) {

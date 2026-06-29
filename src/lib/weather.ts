@@ -72,12 +72,24 @@ export async function getWeatherForecast(
     temperature_unit: "fahrenheit",
     timezone: "auto",
   });
-  const response = await fetch(
-    `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
-    { next: { revalidate: 60 * 60 } },
-  );
+  let forecast: ForecastResponse;
 
-  if (!response.ok) {
+  try {
+    const response = await fetch(
+      `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
+      { next: { revalidate: 60 * 60 } },
+    );
+
+    if (!response.ok) {
+      return {
+        location: location.name,
+        message: "Weather unavailable",
+        status: "unavailable",
+      };
+    }
+
+    forecast = (await response.json()) as ForecastResponse;
+  } catch {
     return {
       location: location.name,
       message: "Weather unavailable",
@@ -85,7 +97,6 @@ export async function getWeatherForecast(
     };
   }
 
-  const forecast = (await response.json()) as ForecastResponse;
   const dateIndex = forecast.daily?.time?.findIndex((item) => item === date) ?? -1;
 
   if (dateIndex < 0) {
@@ -176,15 +187,19 @@ async function geocodeLocation(query: string): Promise<GeocodeResult | null> {
     language: "en",
     name: cleanQuery,
   });
-  const response = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`,
-    { next: { revalidate: 60 * 60 * 24 } },
-  );
+  try {
+    const response = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`,
+      { next: { revalidate: 60 * 60 * 24 } },
+    );
 
-  if (!response.ok) return null;
+    if (!response.ok) return null;
 
-  const geocode = (await response.json()) as GeocodeResponse;
-  return geocode.results?.[0] ?? null;
+    const geocode = (await response.json()) as GeocodeResponse;
+    return geocode.results?.[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function getWeatherCondition(code: number | null): string {

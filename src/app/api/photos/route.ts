@@ -38,7 +38,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Photo storage is not configured." }, { status: 503 });
   }
 
-  const form = await request.formData();
+  const form = await readPhotoForm(request);
+
+  if (!form) {
+    return NextResponse.json({ message: "Photo upload failed." }, { status: 400 });
+  }
+
   const file = form.get("file");
   const tripDate = getString(form, "tripDate");
   const legId = getString(form, "legId");
@@ -64,12 +69,16 @@ export async function POST(request: Request) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const contentHash = createHash("sha256").update(bytes).digest("hex");
-  const { data: duplicate } = await supabase
+  const { data: duplicate, error: duplicateError } = await supabase
     .from("trip_photos")
     .select("photo_id")
     .eq("trip_id", PHOTO_TRIP_ID)
     .eq("content_hash", contentHash)
     .maybeSingle();
+
+  if (duplicateError) {
+    return NextResponse.json({ message: "Photo upload failed." }, { status: 502 });
+  }
 
   if (duplicate) {
     return NextResponse.json(
@@ -117,4 +126,12 @@ export async function POST(request: Request) {
 function getString(form: FormData, key: string): string {
   const value = form.get(key);
   return typeof value === "string" ? value : "";
+}
+
+async function readPhotoForm(request: Request): Promise<FormData | null> {
+  try {
+    return await request.formData();
+  } catch {
+    return null;
+  }
 }

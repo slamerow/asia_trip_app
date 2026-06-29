@@ -59,6 +59,8 @@ export type TripData = {
 
 type CsvRow = Record<string, string | undefined>;
 
+const CSV_FETCH_ATTEMPTS = 3;
+
 const sheetUrls = {
   legs: process.env.SHEET_LEGS_URL,
   activities: process.env.SHEET_ACTIVITIES_URL,
@@ -86,13 +88,30 @@ async function fetchCsv<T>(
     throw new Error(`Missing ${label} sheet URL environment variable.`);
   }
 
-  const response = await fetch(url, { next: { revalidate: 60 } });
+  let csv: string | null = null;
+  let lastFailure = "network error";
 
-  if (!response.ok) {
-    throw new Error(`Could not fetch ${label} sheet: ${response.status}`);
+  for (let attempt = 1; attempt <= CSV_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, { next: { revalidate: 60 } });
+
+      if (response.ok) {
+        csv = await response.text();
+        break;
+      }
+
+      lastFailure = String(response.status);
+    } catch {
+      lastFailure = "network error";
+    }
+
+    if (attempt < CSV_FETCH_ATTEMPTS) await wait(attempt * 250);
   }
 
-  const csv = await response.text();
+  if (csv === null) {
+    throw new Error(`Could not fetch ${label} sheet: ${lastFailure}`);
+  }
+
   const parsed = Papa.parse<CsvRow>(csv, {
     header: true,
     skipEmptyLines: true,
@@ -189,4 +208,10 @@ function nullableNumber(value: string | undefined): number | null {
 
 function numberOrZero(value: string | undefined): number {
   return nullableNumber(value) ?? 0;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }

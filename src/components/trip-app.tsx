@@ -206,7 +206,7 @@ export function TripApp({
             />
           )}
           {activeTab === "legs" && (
-            <LegsPanel legs={data.legs} onSelectLeg={setSelectedLeg} />
+            <LegsPanel currentDate={defaultDay.date} legs={data.legs} onSelectLeg={setSelectedLeg} />
           )}
           {activeTab === "categories" && (
             <CategoriesPanel
@@ -645,14 +645,14 @@ function RestDayCard({ date }: { date: string }) {
 }
 
 function LegsPanel({
+  currentDate,
   legs,
   onSelectLeg,
 }: {
+  currentDate: string;
   legs: Leg[];
   onSelectLeg: (leg: Leg) => void;
 }) {
-  const currentDate = new Date().toISOString().slice(0, 10);
-
   return (
     <div className="space-y-3">
       {legs.map((leg, index) => {

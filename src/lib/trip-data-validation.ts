@@ -61,6 +61,9 @@ export function validateTripData(data: TripData): TripData {
     if (leg.longitude !== null && (leg.longitude < -180 || leg.longitude > 180)) {
       issues.push(`Leg ${leg.leg_id} has an invalid longitude.`);
     }
+    if (!isValidTimeZone(leg.timezone)) {
+      issues.push(`Leg ${leg.leg_id} has an invalid timezone: ${leg.timezone}.`);
+    }
   });
 
   data.activities.forEach((activity) => {
@@ -72,6 +75,9 @@ export function validateTripData(data: TripData): TripData {
     }
     if (!isIsoDate(activity.date)) {
       issues.push(`Activity ${activity.activity_id} has an invalid date: ${activity.date}.`);
+    }
+    if (activity.url && !isHttpUrl(activity.url)) {
+      issues.push(`Activity ${activity.activity_id} has an invalid URL: ${activity.url}.`);
     }
   });
 
@@ -101,4 +107,22 @@ function isIsoDate(value: string): boolean {
 
   const date = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function isValidTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }

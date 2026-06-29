@@ -31,6 +31,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
   const [photos, setPhotos] = useState<ReviewPhoto[]>([]);
   const [isReading, setIsReading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const previewUrls = useRef<Set<string>>(new Set());
   const pendingCount = photos.filter((photo) => ["ready", "failed"].includes(photo.status)).length;
 
   useEffect(() => {
@@ -40,16 +41,34 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
       .catch(() => setSession({ configured, isMember: false, label: null }));
   }, [configured]);
 
+  useEffect(() => {
+    const urls = previewUrls.current;
+
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
+    };
+  }, []);
+
   const chooseFiles = async (files: FileList | null) => {
     if (!files?.length) return;
 
     setIsReading(true);
-    const nextPhotos = await Promise.all(
-      Array.from(files).map((file) => prepareReviewPhoto(file, legs)),
-    );
-    setPhotos((items) => [...items, ...nextPhotos]);
-    setIsReading(false);
-    if (fileInput.current) fileInput.current.value = "";
+    try {
+      const prepared = await Promise.allSettled(
+        Array.from(files).map((file) => prepareReviewPhoto(file, legs)),
+      );
+      const nextPhotos = prepared.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+
+      prepared.forEach((result) => {
+        if (result.status === "rejected") console.error("Could not prepare selected photo", result.reason);
+      });
+      nextPhotos.forEach((photo) => previewUrls.current.add(photo.previewUrl));
+      if (nextPhotos.length > 0) setPhotos((items) => [...items, ...nextPhotos]);
+    } finally {
+      setIsReading(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
   };
 
   const updatePhoto = (id: string, change: Partial<ReviewPhoto>) => {
@@ -166,6 +185,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
               onChange={(change) => updatePhoto(photo.id, change)}
               onRemove={() => {
                 URL.revokeObjectURL(photo.previewUrl);
+                previewUrls.current.delete(photo.previewUrl);
                 setPhotos((items) => items.filter((item) => item.id !== photo.id));
               }}
               photo={photo}
@@ -282,20 +302,25 @@ function PasswordSignIn() {
   const unlockUploads = async () => {
     setIsSending(true);
     setMessage(null);
-    const response = await fetch("/api/photos/login", {
-      body: JSON.stringify({ password }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    const result = (await response.json()) as { message?: string };
+    try {
+      const response = await fetch("/api/photos/login", {
+        body: JSON.stringify({ password }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { message?: string };
 
-    if (response.ok) {
-      window.location.reload();
-      return;
+      if (response.ok) {
+        window.location.reload();
+        return;
+      }
+
+      setMessage(result.message ?? "Uploads could not be unlocked.");
+    } catch {
+      setMessage("Uploads could not be unlocked.");
+    } finally {
+      setIsSending(false);
     }
-
-    setMessage(result.message ?? "Uploads could not be unlocked.");
-    setIsSending(false);
   };
 
   return (

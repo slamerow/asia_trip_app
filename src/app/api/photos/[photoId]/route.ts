@@ -15,7 +15,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   if (!member) return NextResponse.json({ message: "Trip member sign-in required." }, { status: 401 });
 
   const { photoId } = await params;
-  const body = (await request.json()) as { caption?: unknown; legId?: unknown; tripDate?: unknown };
+  const body = await readPhotoDetails(request);
   const caption = typeof body.caption === "string" ? body.caption.trim() : "";
   const legId = typeof body.legId === "string" ? body.legId : "";
   const tripDate = typeof body.tripDate === "string" ? body.tripDate : "";
@@ -34,13 +34,17 @@ export async function PATCH(request: Request, { params }: RouteProps) {
 
   if (!supabase) return NextResponse.json({ message: "Photo storage is not configured." }, { status: 503 });
 
-  const { error } = await supabase
+  const { data: updatedPhoto, error } = await supabase
     .from("trip_photos")
     .update({ caption: caption || null, leg_id: legId, trip_date: tripDate })
     .eq("trip_id", PHOTO_TRIP_ID)
-    .eq("photo_id", photoId);
+    .eq("photo_id", photoId)
+    .select("photo_id")
+    .maybeSingle();
 
   if (error) return NextResponse.json({ message: "Photo could not be updated." }, { status: 502 });
+  if (!updatedPhoto) return NextResponse.json({ message: "Photo not found." }, { status: 404 });
+
   return NextResponse.json({ ok: true });
 }
 
@@ -90,4 +94,16 @@ export async function DELETE(_request: Request, { params }: RouteProps) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+async function readPhotoDetails(request: Request): Promise<{
+  caption?: unknown;
+  legId?: unknown;
+  tripDate?: unknown;
+}> {
+  try {
+    return (await request.json()) as { caption?: unknown; legId?: unknown; tripDate?: unknown };
+  } catch {
+    return {};
+  }
 }

@@ -390,35 +390,47 @@ function PhotoEditor({
   const save = async () => {
     setIsSaving(true);
     setStatus(null);
-    const response = await fetch(`/api/photos/${photo.photoId}`, {
-      body: JSON.stringify({ caption, legId, tripDate }),
-      headers: { "Content-Type": "application/json" },
-      method: "PATCH",
-    });
 
-    if (!response.ok) {
-      const result = (await response.json()) as { message?: string };
-      setStatus(result.message ?? "Photo could not be saved.");
+    try {
+      const response = await fetch(`/api/photos/${photo.photoId}`, {
+        body: JSON.stringify({ caption, legId, tripDate }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        const result = await readJsonMessage(response);
+        setStatus(result.message ?? "Photo could not be saved.");
+        setIsSaving(false);
+        return;
+      }
+
+      onSave({ ...photo, caption: caption.trim() || null, legId, tripDate });
+    } catch {
+      setStatus("Photo could not be saved.");
       setIsSaving(false);
-      return;
     }
-
-    onSave({ ...photo, caption: caption.trim() || null, legId, tripDate });
   };
 
   const remove = async () => {
     if (!window.confirm("Delete this photo from the trip?")) return;
 
     setIsSaving(true);
-    const response = await fetch(`/api/photos/${photo.photoId}`, { method: "DELETE" });
 
-    if (!response.ok) {
+    try {
+      const response = await fetch(`/api/photos/${photo.photoId}`, { method: "DELETE" });
+
+      if (!response.ok) {
+        setStatus("Photo could not be deleted.");
+        setIsSaving(false);
+        return;
+      }
+
+      onDelete(photo.photoId);
+    } catch {
       setStatus("Photo could not be deleted.");
       setIsSaving(false);
-      return;
     }
-
-    onDelete(photo.photoId);
   };
 
   return (
@@ -644,7 +656,7 @@ function readCachedPhotos(filterKey: string): TripPhoto[] {
     const cached = window.localStorage.getItem(getPhotoCacheKey(filterKey));
     const photos = cached ? (JSON.parse(cached) as unknown) : null;
 
-    return Array.isArray(photos) ? (photos as TripPhoto[]) : [];
+    return Array.isArray(photos) && photos.every(isCachedTripPhoto) ? photos : [];
   } catch {
     return [];
   }
@@ -662,6 +674,20 @@ function getPhotoCacheKey(filterKey: string): string {
   return `wrens-gallery:${filterKey}`;
 }
 
+function isCachedTripPhoto(value: unknown): value is TripPhoto {
+  if (!value || typeof value !== "object") return false;
+
+  const photo = value as Partial<Record<keyof TripPhoto, unknown>>;
+  return (
+    typeof photo.photoId === "string" &&
+    typeof photo.url === "string" &&
+    typeof photo.tripDate === "string" &&
+    typeof photo.legId === "string" &&
+    typeof photo.width === "number" &&
+    typeof photo.height === "number"
+  );
+}
+
 function addRetryParam(src: string, retry: number): string {
   const separator = src.includes("?") ? "&" : "?";
   return `${src}${separator}retry=${retry}`;
@@ -671,4 +697,12 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+async function readJsonMessage(response: Response): Promise<{ message?: string }> {
+  try {
+    return (await response.json()) as { message?: string };
+  } catch {
+    return {};
+  }
 }
