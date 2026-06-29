@@ -31,6 +31,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
   const [photos, setPhotos] = useState<ReviewPhoto[]>([]);
   const [isReading, setIsReading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const autoCloseTimer = useRef<number | null>(null);
   const previewUrls = useRef<Set<string>>(new Set());
   const pendingCount = photos.filter((photo) => ["ready", "failed"].includes(photo.status)).length;
 
@@ -45,6 +46,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
     const urls = previewUrls.current;
 
     return () => {
+      if (autoCloseTimer.current !== null) window.clearTimeout(autoCloseTimer.current);
       urls.forEach((url) => URL.revokeObjectURL(url));
       urls.clear();
     };
@@ -77,6 +79,7 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
 
   const publish = async () => {
     const candidates = photos.filter((photo) => ["ready", "failed"].includes(photo.status));
+    let hasFailure = false;
 
     await runWithConcurrency(candidates, 2, async (photo) => {
       updatePhoto(photo.id, { status: "uploading", statusMessage: null });
@@ -107,14 +110,22 @@ export function PhotoUpload({ configured, legs }: { configured: boolean; legs: L
         if (response.status === 409) {
           updatePhoto(photo.id, { status: "duplicate", statusMessage: "Already in the trip" });
         } else if (!response.ok) {
+          hasFailure = true;
           updatePhoto(photo.id, { status: "failed", statusMessage: result.message ?? "Upload failed" });
         } else {
           updatePhoto(photo.id, { status: "uploaded", statusMessage: "Published" });
         }
       } catch {
+        hasFailure = true;
         updatePhoto(photo.id, { status: "failed", statusMessage: "Could not process this image" });
       }
     });
+
+    if (!hasFailure && candidates.length > 0) {
+      autoCloseTimer.current = window.setTimeout(() => {
+        window.location.href = "/photos";
+      }, 900);
+    }
   };
 
   if (!configured) return <UploadShell><SetupState /></UploadShell>;
