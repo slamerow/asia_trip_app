@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Activity, Leg } from "./trip-data";
-import { getLegForDate, getTripDates, getTripDay } from "./trip-days";
+import { getActiveDay, getLegForDate, getTripDates, getTripDay } from "./trip-days";
 
 const legs: Leg[] = [
   makeLeg({ arrive: "2026-07-10", city: "Seattle", leave: "2026-07-12", leg_id: "sea" }),
@@ -25,6 +25,56 @@ describe("getTripDay", () => {
 
   it("returns null for a date with no leg or activity", () => {
     expect(getTripDay(legs, activities, "2026-08-01")).toBeNull();
+  });
+});
+
+describe("getActiveDay", () => {
+  it("uses the active leg time zone instead of UTC for today's default", () => {
+    const day = getActiveDay(legs, activities, new Date("2026-07-12T07:30:00Z"));
+
+    expect(day.date).toBe("2026-07-12");
+    expect(day.cityLabel).toBe("Seattle / Maui (Kihei)");
+    expect(day.activities.map((activity) => activity.activity_id)).toEqual([
+      "flight",
+      "dinner",
+    ]);
+  });
+
+  it("keeps Sunday current in Pacific time when UTC has already moved to Monday", () => {
+    const pacificLegs: Leg[] = [
+      makeLeg({
+        arrive: "2026-06-27",
+        city: "Seattle",
+        leave: "2026-07-02",
+        leg_id: "seattle",
+        timezone: "America/Los_Angeles",
+      }),
+    ];
+    const pacificActivities: Activity[] = [
+      makeActivity({
+        activity_id: "sunday",
+        date: "2026-06-28",
+        leg_id: "seattle",
+        title: "Sunday plan",
+      }),
+      makeActivity({
+        activity_id: "monday",
+        date: "2026-06-29",
+        leg_id: "seattle",
+        title: "Monday plan",
+      }),
+    ];
+
+    const day = getActiveDay(
+      pacificLegs,
+      pacificActivities,
+      new Date("2026-06-29T04:30:00Z"),
+    );
+
+    expect(day.date).toBe("2026-06-28");
+    expect(day.activities.map((activity) => activity.activity_id)).toEqual([
+      "sunday",
+    ]);
   });
 });
 

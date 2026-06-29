@@ -8,14 +8,18 @@ export type TripDay = {
   legs: Leg[];
 };
 
-export function getActiveDay(legs: Leg[], activities: Activity[]): TripDay {
+export function getActiveDay(
+  legs: Leg[],
+  activities: Activity[],
+  now = new Date(),
+): TripDay {
   const firstLeg = legs[0];
 
   if (!firstLeg) {
     throw new Error("No legs found in sheet.");
   }
 
-  const currentDate = new Date().toISOString().slice(0, 10);
+  const currentDate = getCurrentTripDate(legs, now);
   const currentLeg =
     getLegForDate(legs, currentDate) ??
     (currentDate < firstLeg.arrive ? firstLeg : legs.at(-1) ?? firstLeg);
@@ -67,6 +71,37 @@ export function getTripDates(legs: Leg[], activities: Activity[] = []): string[]
 
 export function getLegForDate(legs: Leg[], date: string): Leg | undefined {
   return legs.find((leg) => date >= leg.arrive && date < leg.leave);
+}
+
+function getCurrentTripDate(legs: Leg[], now: Date): string {
+  const activeLegDate = legs
+    .map((leg) => ({
+      date: getDateInTimeZone(now, leg.timezone),
+      leg,
+    }))
+    .find(({ date, leg }) => date >= leg.arrive && date < leg.leave);
+
+  return activeLegDate?.date ?? getDateInTimeZone(now, legs[0]?.timezone ?? "UTC");
+}
+
+function getDateInTimeZone(date: Date, timeZone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone,
+      year: "numeric",
+    }).formatToParts(date);
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    const day = parts.find((part) => part.type === "day")?.value;
+
+    if (year && month && day) return `${year}-${month}-${day}`;
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+
+  return date.toISOString().slice(0, 10);
 }
 
 function buildFallbackDay(leg: Leg, date: string): TripDay {
